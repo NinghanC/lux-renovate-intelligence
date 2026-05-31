@@ -10,7 +10,7 @@
 6. Retrieved chunks become `EvidenceObject` records.
 7. The LLM receives site context, evidence, and taxonomy, then returns a `DossierDraft`.
 8. Validators check schema, evidence refs, taxonomy completeness, and forbidden claims.
-9. Dossier completeness is calculated by code and the validated dossier is saved locally.
+9. Evidence coverage score is calculated by code and the validated dossier is saved locally.
 
 ## Services
 
@@ -21,7 +21,7 @@
 - `LLMProvider`: Alibaba Cloud Bailian/DashScope OpenAI-compatible chat completion adapter.
 - `DossierGenerator`: prompt assembly, LLM call, and dossier assembly.
 - `EvidenceValidator`: guardrails and reference checks.
-- `CoverageCalculator`: deterministic dossier-completeness metric based on matrix statuses.
+- `CoverageCalculator`: deterministic evidence-coverage metric based on matrix statuses.
 
 ## Storage
 

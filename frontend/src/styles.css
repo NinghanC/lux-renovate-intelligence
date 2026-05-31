@@ -15,6 +15,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,
@@ -80,7 +81,8 @@ h3 {
 .empty,
 .site-card span,
 small,
-.evidence-meta span {
+.evidence-meta span,
+.panel-subtitle {
   color: #64727a;
 }
 
@@ -166,6 +168,7 @@ select {
   display: grid;
   gap: 18px;
   align-content: start;
+  min-width: 0;
   padding: 24px;
 }
 
@@ -187,6 +190,7 @@ select {
 }
 
 .panel {
+  min-width: 0;
   padding: 16px;
 }
 
@@ -195,14 +199,30 @@ select {
 }
 
 .panel h2,
+.panel-subtitle,
 .empty-state h2,
 .list-section h2 {
   margin-bottom: 12px;
 }
 
+.panel-subtitle {
+  font-size: 13px;
+}
+
+.site-context-panel {
+  min-height: 260px;
+}
+
+.site-context-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
 .facts {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
+  grid-template-columns: 116px minmax(180px, 1fr);
   gap: 8px 14px;
   margin: 0;
 }
@@ -216,6 +236,35 @@ select {
   margin: 0;
   overflow-wrap: anywhere;
   font-weight: 650;
+}
+
+.site-map {
+  min-height: 210px;
+  overflow: hidden;
+  border: 1px solid #dbe1e5;
+  border-radius: 8px;
+  background: #edf1f3;
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  min-height: 210px;
+}
+
+.leaflet-container {
+  font: inherit;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px;
+  color: #1f2933;
+  line-height: 1.45;
+}
+
+.leaflet-control-attribution {
+  color: #64727a;
+  font-size: 10px;
 }
 
 .coverage-row {
@@ -244,6 +293,7 @@ select {
   grid-template-columns: minmax(0, 1fr) 150px;
   gap: 18px;
   align-items: start;
+  min-width: 0;
   padding: 20px;
 }
 
@@ -285,6 +335,7 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .tabs button {
@@ -304,6 +355,7 @@ select {
 
 .view-panel,
 .empty-state {
+  min-width: 0;
   padding: 18px;
 }
 
@@ -318,38 +370,59 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
 }
 
 .split-view {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+  min-width: 0;
 }
 
 .list,
 .evidence-list {
   display: grid;
   gap: 10px;
+  min-width: 0;
+}
+
+.list-section {
+  min-width: 0;
 }
 
 .item {
   display: grid;
   gap: 8px;
+  align-content: start;
+  justify-items: start;
+  min-width: 0;
   padding: 12px;
   border: 1px solid #e2e8ec;
   border-radius: 8px;
   background: #fbfcfc;
+  overflow-wrap: anywhere;
+}
+
+.item h3,
+.item p,
+.item small {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .status,
 .priority,
 .evidence-type {
   display: inline-flex;
+  align-self: start;
   width: fit-content;
+  max-width: 100%;
   padding: 3px 7px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 750;
+  line-height: 1.2;
 }
 
 .status.available {
@@ -391,10 +464,39 @@ select {
 }
 
 .evidence-meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.evidence-meta strong,
+.evidence-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.evidence-refs {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
   align-items: baseline;
-  justify-content: space-between;
+  color: #64727a;
+  font-size: 13px;
+}
+
+.evidence-ref-button {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #0f766e;
+  cursor: pointer;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .evidence-item p {
@@ -402,7 +504,13 @@ select {
   overflow: auto;
 }
 
-.evidence-item a {
+.evidence-item.highlighted {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14);
+}
+
+.evidence-item a,
+.source-link {
   color: #0f766e;
   font-weight: 750;
   text-decoration: none;

@@ -1,0 +1,30 @@
+Synthetic preliminary site visit notes for upload testing only.
+
+Project context:
+The site is an older residential building being considered for renovation. The visit was a preliminary walkthrough and was not a structural survey.
+
+Available information:
+- Approximate building location and commune are known.
+- The owner has no complete as-built drawing package.
+- A partial floor layout sketch may exist but has not been verified.
+- Planning evidence should be checked against the commune planning documents.
+
+Observed uncertainty signals:
+- Basement humidity was mentioned by the owner, but no moisture measurement was taken.
+- Roof condition was not inspected from close distance.
+- Facade cracks require visual review and potential specialist assessment.
+- MEP systems appear dated, but no maintenance records were provided.
+
+Missing documents:
+- Structural drawings and calculations.
+- Fire-safety documentation.
+- Energy performance certificate.
+- Hazardous-material survey.
+- Detailed MEP documentation.
+
+Recommended next steps:
+- Request available historical drawings from the owner or local archives.
+- Plan a focused structural walkthrough before any load-bearing modifications.
+- Conduct a humidity assessment in the basement.
+- Confirm hazardous-material obligations before demolition or intrusive investigation.
+

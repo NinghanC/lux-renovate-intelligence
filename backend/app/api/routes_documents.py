@@ -1,5 +1,10 @@
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+import mimetypes
+from pathlib import Path
 
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+
+from app.core.paths import RAW_PLANNING_DIR, RAW_UPLOADS_DIR
 from app.models.schemas import RetrievedEvidence, UploadResponse
 from app.services.document_retriever import DocumentRetriever
 from app.services.document_upload import save_and_chunk_upload
@@ -9,6 +14,12 @@ from app.services.site_resolver import SiteNotFoundError, SiteResolver
 router = APIRouter(prefix="/api", tags=["documents"])
 resolver = SiteResolver()
 retriever = DocumentRetriever()
+
+
+def _is_allowed_source_path(path: Path) -> bool:
+    resolved = path.resolve()
+    allowed_roots = [RAW_PLANNING_DIR.resolve(), RAW_UPLOADS_DIR.resolve()]
+    return any(resolved == root or root in resolved.parents for root in allowed_roots)
 
 
 @router.post("/documents/upload", response_model=UploadResponse)
@@ -51,3 +62,19 @@ def retrieve_evidence(
         include_uploaded=include_uploaded_documents,
     )
 
+
+@router.get("/documents/source")
+def get_document_source(path: str) -> FileResponse:
+    source_path = Path(path)
+    if not _is_allowed_source_path(source_path):
+        raise HTTPException(status_code=403, detail="Source path is outside allowed data directories.")
+    resolved = source_path.resolve()
+    if not resolved.exists() or not resolved.is_file():
+        raise HTTPException(status_code=404, detail="Source file not found.")
+    media_type = mimetypes.guess_type(resolved.name)[0] or "application/octet-stream"
+    return FileResponse(
+        resolved,
+        media_type=media_type,
+        filename=resolved.name,
+        content_disposition_type="inline",
+    )

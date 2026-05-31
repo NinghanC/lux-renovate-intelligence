@@ -53,3 +53,8 @@ export async function generateDossier(siteId: string): Promise<Dossier> {
   return payload.dossier;
 }
 
+export function getDocumentSourceUrl(sourcePath: string, page?: number | null): string {
+  const params = new URLSearchParams({ path: sourcePath });
+  const pageHash = page ? `#page=${page}` : "";
+  return `${API_BASE_URL}/api/documents/source?${params.toString()}${pageHash}`;
+}

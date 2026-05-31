@@ -58,7 +58,7 @@ Validation checks:
 - all `evidence_refs` must point to real evidence IDs;
 - all 12 taxonomy categories must be present;
 - forbidden final claims are rejected;
-- dossier completeness score is calculated by code from readiness-matrix statuses, not by the LLM;
+- evidence coverage score is calculated by code from readiness-matrix statuses, not by the LLM;
 - missing information checklist items are converted into `derived_missing_information` evidence for UI traceability.
 
 Without `LLM_API_KEY`, dossier generation returns a clear configuration error. Retrieval, site context, uploads, and the UI still run.
@@ -113,6 +113,8 @@ The optional ingestion script can still generate `data/processed/planning_chunks
 python -X utf8 pipelines\ingest_planning_documents.py
 ```
 
+Synthetic upload examples are available in `data/sample/upload_examples/` for testing the local upload flow without real client data. Upload one of those files from the UI, then click Generate and inspect the uploaded-document evidence.
+
 ## Run Locally
 
 Start backend:
@@ -161,7 +163,7 @@ npm run build
 - Embedding retrieval is abstracted behind `EmbeddingProvider`.
 - Rerank is handled by DashScope `qwen3-rerank` through `RerankProvider`.
 - The Generate endpoint runs the full pipeline on demand instead of reading a prebuilt chunk index.
-- The API retains the internal field name `coverage_score`, but the UI presents it as dossier completeness because it is not a regulatory, risk, or compliance score.
+- The evidence coverage score is not a regulatory, risk, safety, or compliance score.
 - The UI is a product workspace, not a landing page.
 
 ## What Would Be Kept In Production
