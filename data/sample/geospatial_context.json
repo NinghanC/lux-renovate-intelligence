@@ -1,0 +1,43 @@
+{
+  "demo_lux_laangfur_001": {
+    "source_name": "Demo public geospatial context",
+    "source_note": "Context prepared from public map/planning references for MVP demonstration; not a cadastral survey.",
+    "footprint": null,
+    "nearby_features": [
+      "Laangfur planning area",
+      "public planning document coverage",
+      "urban residential context"
+    ],
+    "limitations": [
+      "No verified building footprint is included in the MVP dataset.",
+      "Coordinates are approximate and should not be used for engineering or legal decisions."
+    ]
+  },
+  "demo_diekirch_cite_militaire_001": {
+    "source_name": "Demo public geospatial context",
+    "source_note": "Context prepared from public planning references for MVP demonstration; not a cadastral survey.",
+    "footprint": null,
+    "nearby_features": [
+      "Cite Militaire planning context",
+      "Diekirch commune planning document coverage"
+    ],
+    "limitations": [
+      "No verified building footprint is included in the MVP dataset.",
+      "Coordinates are approximate and should not be used for engineering or legal decisions."
+    ]
+  },
+  "demo_mamer_steinchenwies_001": {
+    "source_name": "Demo public geospatial context",
+    "source_note": "Context prepared from public planning references for MVP demonstration; not a cadastral survey.",
+    "footprint": null,
+    "nearby_features": [
+      "Steinchenwies planning context",
+      "Mamer commune planning document coverage"
+    ],
+    "limitations": [
+      "No verified building footprint is included in the MVP dataset.",
+      "Coordinates are approximate and should not be used for engineering or legal decisions."
+    ]
+  }
+}
+

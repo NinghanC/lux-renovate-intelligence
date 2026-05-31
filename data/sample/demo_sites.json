@@ -1,0 +1,61 @@
+[
+  {
+    "site_id": "demo_lux_laangfur_001",
+    "display_name": "Demo Building - Luxembourg City Laangfur",
+    "input_address": "Laangfur area, Luxembourg City, Luxembourg",
+    "commune": "Luxembourg",
+    "coordinates": {
+      "lat": 49.5869,
+      "lon": 6.0887
+    },
+    "building_type": "residential",
+    "approx_year_built": null,
+    "description": "Demo old residential building context near the Laangfur planning area. Coordinates are approximate for MVP demonstration.",
+    "available_public_sources": [
+      "VDL PAP Laangfur planning PDF",
+      "VDL PAG modification PDF"
+    ],
+    "source_notes": [
+      "Used as a site-centric demo for renovation readiness; not a verified cadastral record."
+    ]
+  },
+  {
+    "site_id": "demo_diekirch_cite_militaire_001",
+    "display_name": "Demo Building - Diekirch Cite Militaire",
+    "input_address": "Cite Militaire area, Diekirch, Luxembourg",
+    "commune": "Diekirch",
+    "coordinates": {
+      "lat": 49.8704,
+      "lon": 6.1616
+    },
+    "building_type": "mixed_use",
+    "approx_year_built": null,
+    "description": "Demo building context for Diekirch planning-document retrieval.",
+    "available_public_sources": [
+      "Diekirch PAG/PAP planning PDF"
+    ],
+    "source_notes": [
+      "Coordinates are approximate and only support the MVP UI context."
+    ]
+  },
+  {
+    "site_id": "demo_mamer_steinchenwies_001",
+    "display_name": "Demo Building - Mamer Steinchenwies",
+    "input_address": "Steinchenwies area, Mamer, Luxembourg",
+    "commune": "Mamer",
+    "coordinates": {
+      "lat": 49.6269,
+      "lon": 6.0215
+    },
+    "building_type": "residential",
+    "approx_year_built": null,
+    "description": "Demo building context for Mamer PAG/PAP document retrieval.",
+    "available_public_sources": [
+      "Mamer PAG partie ecrite PDF"
+    ],
+    "source_notes": [
+      "MVP does not infer parcel boundaries or building footprint from the coordinate."
+    ]
+  }
+]
+

@@ -1,0 +1,2 @@
+"""LuxRenovate Intelligence backend package."""
+

@@ -1,0 +1,43 @@
+[
+  {
+    "document_id": "vdl_lak_pap_partie_ecrite",
+    "document_name": "Ville de Luxembourg - PAP Laangfur Partie ecrite",
+    "document_type": "PAP",
+    "commune": "Luxembourg",
+    "local_filename": "vdl_lak_pap_partie_ecrite.pdf",
+    "url": "https://www.vdl.lu/sites/default/files/media/ni/document/LAK_PAP_Partie%20e%CC%81crite.pdf",
+    "source_page": "https://www.vdl.lu/fr/la-ville/engagements-de-la-ville/developpement-urbain/pap/pap-laangfur",
+    "license_note": "Official public planning document from Ville de Luxembourg website."
+  },
+  {
+    "document_id": "vdl_pag_modification_2025_09",
+    "document_name": "Ville de Luxembourg - PAG modification 2025-09",
+    "document_type": "PAG",
+    "commune": "Luxembourg",
+    "local_filename": "vdl_pag_modification_2025_09.pdf",
+    "url": "https://www.vdl.lu/sites/default/files/media/ni/document/VDL_PAG_PE_projet%20de%20modification_2025-09.pdf",
+    "source_page": "https://www.vdl.lu/fr/la-ville/engagements-de-la-ville/developpement-urbain/pap/pap-laangfur",
+    "license_note": "Official public planning document from Ville de Luxembourg website."
+  },
+  {
+    "document_id": "diekirch_cite_militaire_pag_pe",
+    "document_name": "Diekirch - Cite Militaire PAG Partie ecrite",
+    "document_type": "PAG",
+    "commune": "Diekirch",
+    "local_filename": "diekirch_cite_militaire_pag_pe.pdf",
+    "url": "https://diekirch.lu/fileadmin/user_upload/PAP_Cite%CC%81_Militaire_00_PAG_PE_VERSION_COORDONNEE.pdf",
+    "source_page": "https://diekirch.lu/fr/commune-de-diekirch/trouver-un-service/logement-propriete/plan-damenagement-general-pag",
+    "license_note": "Official public planning document from Commune de Diekirch website."
+  },
+  {
+    "document_id": "mamer_steinchenwies_pag_pe",
+    "document_name": "Mamer - Steinchenwies PAG Partie ecrite",
+    "document_type": "PAG",
+    "commune": "Mamer",
+    "local_filename": "mamer_steinchenwies_pag_pe.pdf",
+    "url": "https://mamer.lu/wp-content/uploads/2025/03/MOPO-PAG-STEINCHENWIES-_-PAG-partie-ecrite-version-saisine.pdf",
+    "source_page": "https://mamer.lu/urbanisme/",
+    "license_note": "Official public planning document from Commune de Mamer website."
+  }
+]
+
