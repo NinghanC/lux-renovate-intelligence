@@ -5,13 +5,16 @@ from pathlib import Path
 
 import fitz
 
+from app.core.config import settings
 from app.models.schemas import PlanningChunk
+from app.services.ocr_provider import OCRProvider
 
 
 @dataclass(frozen=True)
 class PageText:
     page: int
     text: str
+    parser: str = "pymupdf"
 
 
 def normalize_text(text: str) -> str:
@@ -21,19 +24,26 @@ def normalize_text(text: str) -> str:
     return text.strip()
 
 
-def parse_pdf(path: Path) -> list[PageText]:
+def parse_pdf(path: Path, ocr_provider: OCRProvider | None = None) -> list[PageText]:
     doc = fitz.open(path)
+    ocr = ocr_provider or OCRProvider()
     pages: list[PageText] = []
     for page_index, page in enumerate(doc, start=1):
         text = normalize_text(page.get_text("text"))
+        parser = "pymupdf"
+        if len(text) < settings.ocr_min_text_chars and ocr.configured:
+            ocr_text = normalize_text(ocr.extract_text_from_png(render_page_png(page)))
+            if len(ocr_text) > len(text):
+                text = ocr_text
+                parser = settings.ocr_model or "ocr"
         if text:
-            pages.append(PageText(page=page_index, text=text))
+            pages.append(PageText(page=page_index, text=text, parser=parser))
     return pages
 
 
 def parse_text_file(path: Path) -> list[PageText]:
     text = normalize_text(path.read_text(encoding="utf-8", errors="replace"))
-    return [PageText(page=1, text=text)] if text else []
+    return [PageText(page=1, text=text, parser="text")] if text else []
 
 
 def parse_document(path: Path) -> list[PageText]:
@@ -43,6 +53,12 @@ def parse_document(path: Path) -> list[PageText]:
     if suffix in {".txt", ".md", ".markdown"}:
         return parse_text_file(path)
     raise ValueError(f"Unsupported document type: {suffix}")
+
+
+def render_page_png(page: fitz.Page) -> bytes:
+    scale = max(settings.ocr_render_dpi, 72) / 72
+    pixmap = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+    return pixmap.tobytes("png")
 
 
 def split_text(text: str, max_chars: int = 1200, overlap_chars: int = 150) -> list[str]:
@@ -96,8 +112,7 @@ def chunk_document(
                     text=text,
                     source_path=str(source_path),
                     source_url=source_url,
-                    metadata={"parser": "pymupdf", "max_chars": max_chars},
+                    metadata={"parser": page.parser, "max_chars": max_chars},
                 )
             )
     return chunks
-

@@ -28,6 +28,12 @@ class Settings:
     )
     rerank_model: str = os.getenv("RERANK_MODEL", "qwen3-rerank")
     rerank_top_n: int = int(os.getenv("RERANK_TOP_N", "8"))
+    ocr_api_key: str | None = os.getenv("OCR_API_KEY") or os.getenv("LLM_API_KEY")
+    ocr_base_url: str | None = os.getenv("OCR_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+    ocr_model: str | None = os.getenv("OCR_MODEL", "qwen-vl-ocr-latest")
+    ocr_timeout_seconds: int = int(os.getenv("OCR_TIMEOUT_SECONDS", "120"))
+    ocr_min_text_chars: int = int(os.getenv("OCR_MIN_TEXT_CHARS", "80"))
+    ocr_render_dpi: int = int(os.getenv("OCR_RENDER_DPI", "144"))
     cors_origins: tuple[str, ...] = tuple(
         item.strip()
         for item in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
@@ -45,6 +51,10 @@ class Settings:
     @property
     def rerank_configured(self) -> bool:
         return bool(self.rerank_api_key and self.rerank_endpoint and self.rerank_model)
+
+    @property
+    def ocr_configured(self) -> bool:
+        return bool(self.ocr_api_key and self.ocr_base_url and self.ocr_model)
 
 
 settings = Settings()

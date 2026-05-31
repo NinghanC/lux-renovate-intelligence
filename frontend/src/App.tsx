@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, Play, UploadCloud } from "lucide-react";
+import { AlertTriangle, Loader2, Maximize2, Play, X, UploadCloud } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
 import { generateDossier, getDocumentSourceUrl, getSiteContext, getSites, uploadDocument } from "./api/client";
@@ -76,6 +76,29 @@ function evidenceSourceHref(evidence: EvidenceObject | undefined) {
   return null;
 }
 
+function evidenceRefLabel(evidence: EvidenceObject | undefined, fallback: string) {
+  if (!evidence) return fallback;
+  const fileName = evidenceFileName(evidence);
+  return evidence.page ? `${fileName} · p.${evidence.page}` : fileName;
+}
+
+function evidenceRefParts(evidence: EvidenceObject | undefined, fallback: string) {
+  if (!evidence) return { fileName: fallback, page: null as number | null };
+  return { fileName: evidenceFileName(evidence), page: evidence.page };
+}
+
+function evidenceFileName(evidence: EvidenceObject) {
+  const path = evidence.source_path ?? evidence.source_name;
+  const rawName = path.split(/[\\/]/).pop() ?? evidence.source_name;
+  const uploadedMatch = rawName.match(/^.+?_upload_[a-f0-9]{12}_(.+)$/i);
+  return uploadedMatch?.[1] ?? rawName;
+}
+
+function scoredCoverageCategories(dossier: Dossier) {
+  const coverage = dossier.coverage_score;
+  return coverage.available + coverage.partial + coverage.missing + coverage.unknown;
+}
+
 function App() {
   const [sites, setSites] = useState<DemoSite[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState("");
@@ -83,6 +106,7 @@ function App() {
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("matrix");
   const [highlightedEvidenceId, setHighlightedEvidenceId] = useState<string | null>(null);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,22 +235,33 @@ function App() {
           </div>
         ) : null}
 
-        <section className="topline">
-          <SiteContextBlock siteContext={siteContext} />
-          <EvidenceCoverageBlock dossier={dossier} />
-        </section>
+          <SiteContextBlock siteContext={siteContext} onOpenMap={() => setMapFullscreen(true)} />
 
         {dossier ? (
           <>
             <section className="dossier-hero">
               <div>
-                <span className="eyebrow">{dossier.dossier_id}</span>
                 <h2>Renovation readiness dossier</h2>
                 <p>{dossier.building_summary}</p>
               </div>
               <div className="hero-stat">
+                <span>Evidence Coverage Score</span>
                 <strong>{dossier.coverage_score.coverage_score}%</strong>
-                <span>evidence coverage</span>
+                <small>
+                  available {dossier.coverage_score.available} · partial {dossier.coverage_score.partial} · missing{" "}
+                  {dossier.coverage_score.missing}
+                </small>
+                <small>
+                  based on {scoredCoverageCategories(dossier)} applicable matrix categories
+                  {dossier.coverage_score.not_applicable
+                    ? ` · excluded ${dossier.coverage_score.not_applicable} not applicable`
+                    : ""}
+                  {dossier.coverage_score.unknown ? ` · unknown ${dossier.coverage_score.unknown}` : ""}
+                </small>
+                {dossier.coverage_score.unknown ? (
+                  <small>Unknown is counted as uncovered evidence.</small>
+                ) : null}
+                <em>Not a risk or compliance score.</em>
               </div>
             </section>
 
@@ -253,11 +288,20 @@ function App() {
           </section>
         )}
       </section>
+      {mapFullscreen && siteContext ? (
+        <MapDialog siteContext={siteContext} onClose={() => setMapFullscreen(false)} />
+      ) : null}
     </main>
   );
 }
 
-function SiteContextBlock({ siteContext }: { siteContext: SiteContext | null }) {
+function SiteContextBlock({
+  siteContext,
+  onOpenMap
+}: {
+  siteContext: SiteContext | null;
+  onOpenMap: () => void;
+}) {
   if (!siteContext) {
     return (
       <section className="panel site-context-panel">
@@ -289,23 +333,36 @@ function SiteContextBlock({ siteContext }: { siteContext: SiteContext | null }) 
           <dt>Nearby</dt>
           <dd>{siteContext.nearby_features.length ? siteContext.nearby_features.join(", ") : "Unknown"}</dd>
         </dl>
-        <SiteMap siteContext={siteContext} />
+        <SiteMap siteContext={siteContext} onOpenMap={onOpenMap} />
       </div>
     </section>
   );
 }
 
-function SiteMap({ siteContext }: { siteContext: SiteContext }) {
+function SiteMap({
+  siteContext,
+  onOpenMap,
+  fullscreen = false
+}: {
+  siteContext: SiteContext;
+  onOpenMap?: () => void;
+  fullscreen?: boolean;
+}) {
   const position: [number, number] = [siteContext.coordinates.lat, siteContext.coordinates.lon];
 
   return (
-    <div className="site-map">
+    <div className={fullscreen ? "site-map fullscreen-map" : "site-map"}>
+      {onOpenMap ? (
+        <button className="map-expand-button" type="button" onClick={onOpenMap} title="Open full-screen map">
+          <Maximize2 size={16} />
+        </button>
+      ) : null}
       <MapContainer
         key={siteContext.site_id}
         center={position}
         zoom={15}
         scrollWheelZoom={false}
-        zoomControl={false}
+        zoomControl
         className="map-container"
       >
         <TileLayer
@@ -328,22 +385,25 @@ function SiteMap({ siteContext }: { siteContext: SiteContext }) {
   );
 }
 
-function EvidenceCoverageBlock({ dossier }: { dossier: Dossier | null }) {
+function MapDialog({ siteContext, onClose }: { siteContext: SiteContext; onClose: () => void }) {
   return (
-    <section className="panel compact-panel">
-      <h2>Evidence Coverage Score</h2>
-      <p className="panel-subtitle">Document coverage, not a risk or compliance score.</p>
-      {dossier ? (
-        <div className="coverage-row">
-          <strong>{dossier.coverage_score.coverage_score}%</strong>
-          <span>available {dossier.coverage_score.available}</span>
-          <span>partial {dossier.coverage_score.partial}</span>
-          <span>missing {dossier.coverage_score.missing}</span>
+    <div className="map-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Site map">
+      <div className="map-dialog">
+        <div className="map-dialog-header">
+          <div>
+            <h2>Site map</h2>
+            <p>
+              {siteContext.address} · {siteContext.coordinates.lat.toFixed(4)},{" "}
+              {siteContext.coordinates.lon.toFixed(4)}
+            </p>
+          </div>
+          <button className="map-close-button" type="button" onClick={onClose} title="Close map">
+            <X size={18} />
+          </button>
         </div>
-      ) : (
-        <p className="empty">Calculated after validation.</p>
-      )}
-    </section>
+        <SiteMap siteContext={siteContext} fullscreen />
+      </div>
+    </div>
   );
 }
 
@@ -459,21 +519,24 @@ function EvidenceRefs({
   if (!refs.length) return null;
   return (
     <div className="evidence-refs">
-      <span>Refs:</span>
-      {refs.map((ref) => {
-        const evidence = evidenceById.get(ref);
-        return (
-          <button
-            key={ref}
-            type="button"
-            className="evidence-ref-button"
-            onClick={() => onClick(ref)}
-            title={evidence ? `Open ${evidence.source_name}${evidence.page ? `, page ${evidence.page}` : ""}` : ref}
-          >
-            {ref}
-          </button>
-        );
-      })}
+      <span className="evidence-refs-label">Refs</span>
+      <div className="evidence-ref-list">
+        {refs.map((ref) => {
+          const evidence = evidenceById.get(ref);
+          const parts = evidenceRefParts(evidence, ref);
+          return (
+            <button
+              key={ref}
+              type="button"
+              className="evidence-ref-button"
+              onClick={() => onClick(ref)}
+            >
+              <span className="evidence-ref-file">{parts.fileName}</span>
+              {parts.page ? <span className="evidence-ref-page">p.{parts.page}</span> : null}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -494,11 +557,8 @@ function EvidencePanel({
           className={`item evidence-item ${highlightedEvidenceId === item.evidence_id ? "highlighted" : ""}`}
         >
           <div className="evidence-meta">
-            <strong>{item.source_name}</strong>
-            <span>
-              {item.evidence_id}
-              {item.page ? ` - page ${item.page}` : ""}
-            </span>
+            <strong>{evidenceFileName(item)}</strong>
+            <span>{item.page ? `page ${item.page}` : evidenceTypeLabel(item.evidence_type)}</span>
           </div>
           <span className={`evidence-type ${item.evidence_type}`}>{evidenceTypeLabel(item.evidence_type)}</span>
           <p>{item.content}</p>

@@ -14,7 +14,9 @@ def health() -> dict[str, object]:
         "llm_configured": settings.llm_configured,
         "embedding_configured": settings.embedding_configured,
         "rerank_configured": settings.rerank_configured,
+        "ocr_configured": settings.ocr_configured,
         "llm_model": settings.llm_model,
         "embedding_model": settings.embedding_model,
         "rerank_model": settings.rerank_model,
+        "ocr_model": settings.ocr_model,
     }

@@ -4,7 +4,7 @@
 
 1. Demo site selection loads a fixed `SiteContext`.
 2. The UI waits; it does not pre-retrieve evidence.
-3. When the user clicks Generate, raw planning PDFs for the selected commune are parsed and chunked in memory.
+3. When the user clicks Generate, raw planning PDFs for the selected commune are parsed and chunked in memory. Text PDFs use PyMuPDF extraction; pages with too little extracted text can fall back to Qwen-OCR.
 4. Retrieval scores chunks with keyword relevance and DashScope embeddings.
 5. DashScope `qwen3-rerank` reranks the strongest retrieval candidates.
 6. Retrieved chunks become `EvidenceObject` records.
@@ -16,6 +16,7 @@
 
 - `SiteResolver`: loads demo sites and creates site context.
 - `DocumentParser`: extracts PDF/text and chunks it.
+- `OCRProvider`: Qwen-OCR fallback for scanned PDF pages.
 - `DocumentRetriever`: keyword + embedding retrieval and rerank orchestration.
 - `RerankProvider`: DashScope text rerank adapter.
 - `LLMProvider`: Alibaba Cloud Bailian/DashScope OpenAI-compatible chat completion adapter.

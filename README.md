@@ -90,8 +90,9 @@ Then edit `.env` with your Alibaba Cloud Bailian/DashScope API key. Defaults use
 - `LLM_MODEL=qwen3.6-flash`
 - `EMBEDDING_MODEL=text-embedding-v4`
 - `RERANK_MODEL=qwen3-rerank`
+- `OCR_MODEL=qwen-vl-ocr-latest`
 
-Embedding and rerank settings are optional for startup, but required for the full Hybrid RAG + rerank flow.
+Embedding, rerank, and OCR settings are optional for startup. OCR is used only as a PDF fallback when normal text extraction returns too little text, which keeps ordinary text PDFs cheap to parse while supporting scanned sample documents.
 
 ## Data Pipeline
 
@@ -159,6 +160,7 @@ npm run build
 - FastAPI and Pydantic keep the API typed and easy to validate.
 - Local JSON/JSONL keeps the MVP reproducible and reviewable.
 - PyMuPDF is enough for public PDF text extraction.
+- Qwen-OCR (`qwen-vl-ocr-latest`) is used as a scanned-PDF fallback, not as the default parser for every document.
 - Keyword retrieval is the default because it works without external services.
 - Embedding retrieval is abstracted behind `EmbeddingProvider`.
 - Rerank is handled by DashScope `qwen3-rerank` through `RerankProvider`.
