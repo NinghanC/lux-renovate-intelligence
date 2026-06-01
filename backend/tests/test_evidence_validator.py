@@ -7,13 +7,16 @@ from app.models.schemas import (
     EvidenceType,
     MissingInformationItem,
     ReadinessMatrixItem,
+    SourceRecord,
 )
 from app.services.dossier_generator import build_missing_information_evidence
 from app.services.dossier_generator import normalize_draft_evidence_refs
 from app.services.evidence_validator import (
     ValidationFailure,
     validate_evidence_refs,
+    validate_evidence_source_integrity,
     validate_forbidden_claims,
+    validate_claim_support,
     validate_taxonomy_complete,
 )
 from app.services.taxonomy import load_taxonomy
@@ -28,6 +31,16 @@ def evidence() -> list[EvidenceObject]:
             content="Planning context text",
         )
     ]
+
+
+def source(source_id="src_001", source_type="official_planning_pdf", page_count=2) -> SourceRecord:
+    return SourceRecord(
+        source_id=source_id,
+        display_name="Planning PDF",
+        source_type=source_type,
+        authority="municipal_official" if source_type == "official_planning_pdf" else "user_supplied",
+        page_count=page_count,
+    )
 
 
 def matrix_items(refs=None) -> list[ReadinessMatrixItem]:
@@ -74,6 +87,40 @@ def test_taxonomy_complete_accepts_all_categories():
 def test_unknown_evidence_refs_are_rejected():
     with pytest.raises(ValidationFailure):
         validate_evidence_refs(draft(refs=["ev_missing"]), evidence())
+
+
+def test_evidence_source_integrity_rejects_page_outside_source_range():
+    items = [
+        EvidenceObject(
+            evidence_id="ev_001",
+            evidence_type=EvidenceType.planning_document,
+            source_id="src_001",
+            source_name="Planning PDF",
+            page=3,
+            content="Planning context text",
+        )
+    ]
+    with pytest.raises(ValidationFailure):
+        validate_evidence_source_integrity(items, [source(page_count=2)])
+
+
+def test_planning_claim_requires_official_planning_source():
+    items = [
+        EvidenceObject(
+            evidence_id="ev_001",
+            evidence_type=EvidenceType.uploaded_document,
+            source_id="src_upload",
+            source_name="Owner note",
+            content="Owner note text",
+        )
+    ]
+    dossier_draft = draft()
+    for item in dossier_draft.readiness_matrix:
+        if item.category_id == "planning_regulatory_context":
+            item.status = "partial"
+            item.evidence_refs = ["ev_001"]
+    with pytest.raises(ValidationFailure):
+        validate_claim_support(dossier_draft, items, [source("src_upload", source_type="uploaded_document")])
 
 
 def test_missing_information_items_become_derived_evidence():

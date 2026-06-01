@@ -8,27 +8,54 @@ from app.core.config import settings
 
 
 class OCRProvider:
-    """OpenAI-compatible Qwen OCR client for scanned PDF fallback."""
+    """OCR fallback for scanned PDF pages.
+
+    AWS Textract is the default OCR provider. A Databricks vision endpoint can
+    be used as a secondary option when OCR_PROVIDER=databricks_vision.
+    """
 
     def __init__(
         self,
+        provider: str = settings.ocr_provider,
         api_key: str | None = settings.ocr_api_key,
         base_url: str | None = settings.ocr_base_url,
         model: str | None = settings.ocr_model,
+        aws_region: str = settings.ocr_aws_region,
         timeout_seconds: int = settings.ocr_timeout_seconds,
     ):
+        self.provider = provider
         self.api_key = api_key
         self.base_url = base_url.rstrip("/") if base_url else None
         self.model = model
+        self.aws_region = aws_region
         self.timeout_seconds = timeout_seconds
 
     @property
     def configured(self) -> bool:
+        if self.provider == "aws_textract":
+            return bool(self.aws_region)
         return bool(self.api_key and self.base_url and self.model)
 
     def extract_text_from_png(self, image_bytes: bytes) -> str:
         if not self.configured:
             return ""
+        if self.provider == "aws_textract":
+            return self._extract_text_with_textract(image_bytes)
+        return self._extract_text_with_vision_model(image_bytes)
+
+    def _extract_text_with_textract(self, image_bytes: bytes) -> str:
+        try:
+            import boto3
+        except ImportError:
+            return ""
+        try:
+            client = boto3.client("textract", region_name=self.aws_region)
+            response = client.detect_document_text(Document={"Bytes": image_bytes})
+            return _textract_plain_text(response)
+        except Exception:
+            return ""
+
+    def _extract_text_with_vision_model(self, image_bytes: bytes) -> str:
         endpoint = f"{self.base_url}/chat/completions"
         image_data = base64.b64encode(image_bytes).decode("ascii")
         payload: dict[str, Any] = {
@@ -61,6 +88,15 @@ class OCRProvider:
             return _plain_text(content)
         except Exception:
             return ""
+
+
+def _textract_plain_text(response: dict[str, Any]) -> str:
+    lines = [
+        block.get("Text", "").strip()
+        for block in response.get("Blocks", [])
+        if block.get("BlockType") == "LINE" and block.get("Text")
+    ]
+    return "\n".join(line for line in lines if line)
 
 
 def _plain_text(content: Any) -> str:

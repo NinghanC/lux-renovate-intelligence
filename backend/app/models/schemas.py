@@ -8,6 +8,20 @@ from pydantic import BaseModel, Field, field_validator
 ReadinessStatus = Literal["available", "partial", "missing", "unknown", "not_applicable"]
 Priority = Literal["high", "medium", "low"]
 Confidence = Literal["high", "medium", "low"]
+SourceType = Literal[
+    "official_planning_pdf",
+    "uploaded_document",
+    "uploaded_image",
+    "geojson",
+    "derived",
+]
+SourceAuthority = Literal[
+    "municipal_official",
+    "user_supplied",
+    "open_geospatial",
+    "system_derived",
+    "unknown",
+]
 
 
 class EvidenceType(str, Enum):
@@ -59,6 +73,7 @@ class SiteContext(BaseModel):
 class PlanningChunk(BaseModel):
     chunk_id: str
     document_id: str
+    source_id: str | None = None
     document_name: str
     document_type: str
     commune: str
@@ -70,14 +85,40 @@ class PlanningChunk(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class SourceRecord(BaseModel):
+    source_id: str
+    display_name: str
+    source_type: SourceType
+    authority: SourceAuthority = "unknown"
+    commune: str | None = None
+    language: str | None = None
+    original_url: str | None = None
+    source_page_url: str | None = None
+    local_path: str | None = None
+    checksum_sha256: str | None = None
+    page_count: int | None = None
+    parser: str | None = None
+    status: str = "registered"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class EvidenceLocator(BaseModel):
+    page: int | None = None
+    chunk_id: str | None = None
+
+
 class EvidenceObject(BaseModel):
     evidence_id: str
     evidence_type: EvidenceType
+    source_id: str | None = None
     source_name: str
     source_path: str | None = None
     source_url: str | None = None
     page: int | None = None
     chunk_id: str | None = None
+    locator: EvidenceLocator | None = None
+    supports: list[str] = Field(default_factory=list)
+    parser: str | None = None
     content: str
     metadata: dict[str, Any] = Field(default_factory=dict)
     confidence: Confidence = "medium"
@@ -92,10 +133,17 @@ class RetrievedEvidence(BaseModel):
 
 class UploadResponse(BaseModel):
     document_id: str
+    source_id: str | None = None
     document_type: str
     filename: str
     chunks_created: int
     chunks: list[PlanningChunk]
+
+
+class SiteGeoJsonResponse(BaseModel):
+    site_id: str
+    radius_m: float
+    geojson: dict[str, Any]
 
 
 class CoverageScore(BaseModel):

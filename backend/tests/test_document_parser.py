@@ -50,4 +50,4 @@ def test_pdf_parser_uses_ocr_fallback_for_scanned_pages(tmp_path: Path):
     pages = parse_pdf(pdf_path, ocr_provider=FakeOCRProvider())
 
     assert pages[0].text == "OCR extracted basement humidity note."
-    assert pages[0].parser == "qwen-vl-ocr-latest"
+    assert pages[0].parser == "aws-textract-detect-document-text"

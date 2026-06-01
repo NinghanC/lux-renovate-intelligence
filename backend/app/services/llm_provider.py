@@ -56,13 +56,36 @@ class LLMProvider:
         try:
             with httpx.Client(timeout=self.timeout_seconds) as client:
                 response = client.post(endpoint, json=payload, headers=headers)
-                response.raise_for_status()
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as exc:
+                    raise LLMGenerationError(
+                        f"LLM request failed with HTTP {response.status_code}: {response.text[:500]}"
+                    ) from exc
             content = response.json()["choices"][0]["message"]["content"]
-            return DossierDraft.model_validate(json.loads(extract_json_object(content)))
+            return DossierDraft.model_validate(json.loads(extract_json_object(normalize_message_content(content))))
+        except LLMGenerationError:
+            raise
         except httpx.HTTPError as exc:
             raise LLMGenerationError(f"LLM request failed: {exc}") from exc
         except (KeyError, json.JSONDecodeError, ValueError) as exc:
             raise LLMGenerationError(f"LLM response was not valid dossier JSON: {exc}") from exc
+
+
+def normalize_message_content(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_parts: list[str] = []
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text") or item.get("content")
+            if isinstance(text, str):
+                text_parts.append(text)
+        if text_parts:
+            return "\n".join(text_parts)
+    raise LLMGenerationError("LLM response did not contain text content.")
 
 
 def extract_json_object(content: str) -> str:

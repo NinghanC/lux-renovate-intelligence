@@ -39,15 +39,47 @@ export interface SiteContext {
 export interface EvidenceObject {
   evidence_id: string;
   evidence_type: string;
+  source_id: string | null;
   source_name: string;
   source_path: string | null;
   source_url: string | null;
   page: number | null;
   chunk_id: string | null;
+  locator: {
+    page: number | null;
+    chunk_id: string | null;
+  } | null;
+  supports: string[];
+  parser: string | null;
   content: string;
   metadata: Record<string, unknown>;
   confidence: "high" | "medium" | "low";
   score: number | null;
+}
+
+export interface GeoJsonFeature {
+  type: "Feature";
+  geometry: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  properties: {
+    feature_id?: string;
+    name?: string;
+    feature_type?: string;
+    site_id?: string;
+    distance_m?: number;
+    source_id?: string;
+  };
+}
+
+export interface SiteGeoJsonResponse {
+  site_id: string;
+  radius_m: number;
+  geojson: {
+    type: "FeatureCollection";
+    features: GeoJsonFeature[];
+  };
 }
 
 export interface RetrievedEvidence {

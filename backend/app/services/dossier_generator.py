@@ -12,11 +12,15 @@ from app.models.schemas import (
 )
 from app.services.coverage_calculator import calculate_coverage
 from app.services.evidence_validator import (
+    validate_claim_support,
+    validate_evidence_source_integrity,
     validate_evidence_refs,
     validate_forbidden_claims,
+    validate_matrix_evidence_requirements,
     validate_taxonomy_complete,
 )
 from app.services.llm_provider import LLMProvider
+from app.services.source_registry import SourceRegistry
 
 
 SYSTEM_PROMPT = """You are a bounded renovation-readiness assistant for SECO-style engineering preparation.
@@ -89,9 +93,12 @@ def build_user_prompt(
         {
             "evidence_id": item.evidence_id,
             "type": item.evidence_type,
+            "source_id": item.source_id,
             "source_name": item.source_name,
             "page": item.page,
             "chunk_id": item.chunk_id,
+            "supports": item.supports,
+            "parser": item.parser,
             "content": item.content[:1800],
             "metadata": item.metadata,
         }
@@ -120,8 +127,9 @@ def build_user_prompt(
 
 
 class DossierGenerator:
-    def __init__(self, llm_provider: LLMProvider | None = None):
+    def __init__(self, llm_provider: LLMProvider | None = None, source_registry: SourceRegistry | None = None):
         self.llm_provider = llm_provider or LLMProvider()
+        self.source_registry = source_registry or SourceRegistry()
 
     def generate(
         self,
@@ -143,6 +151,7 @@ class DossierGenerator:
             evidence=evidence,
             taxonomy=taxonomy,
             draft=draft,
+            source_registry=self.source_registry,
         )
 
 
@@ -152,10 +161,15 @@ def build_validated_dossier(
     evidence: list[EvidenceObject],
     taxonomy: list[ReadinessTaxonomyItem],
     draft: DossierDraft,
+    source_registry: SourceRegistry | None = None,
 ) -> Dossier:
     validate_taxonomy_complete(draft)
     normalize_draft_evidence_refs(draft, evidence)
     validate_evidence_refs(draft, evidence)
+    validate_matrix_evidence_requirements(draft)
+    sources = source_registry.list_sources() if source_registry else None
+    validate_evidence_source_integrity(evidence, sources)
+    validate_claim_support(draft, evidence, sources)
     validate_forbidden_claims(draft)
     evidence_with_missing = evidence + build_missing_information_evidence(draft, evidence)
     coverage = calculate_coverage(draft.readiness_matrix)
@@ -178,6 +192,7 @@ def build_validated_dossier(
         evidence=evidence_with_missing,
         limitations=draft.limitations,
     )
+    validate_evidence_source_integrity(evidence_with_missing, sources)
     validate_forbidden_claims(dossier)
     return dossier
 
@@ -233,8 +248,10 @@ def build_missing_information_evidence(
             EvidenceObject(
                 evidence_id=f"ev_missing_{item.item_id or index}",
                 evidence_type=EvidenceType.derived_missing_information,
+                source_id="src_system_derived_missing_information",
                 source_name="Missing information evidence",
                 content=content,
+                supports=[item.category_id],
                 metadata={
                     "category_id": item.category_id,
                     "missing_item_id": item.item_id,

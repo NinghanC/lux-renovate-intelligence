@@ -1,4 +1,4 @@
-import type { DemoSite, Dossier, RetrievedEvidence, SiteContext } from "../types/dossier";
+import type { DemoSite, Dossier, RetrievedEvidence, SiteContext, SiteGeoJsonResponse } from "../types/dossier";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -27,6 +27,10 @@ export function getSites(): Promise<DemoSite[]> {
 
 export function getSiteContext(siteId: string): Promise<SiteContext> {
   return request<SiteContext>(`/api/sites/${siteId}/context`);
+}
+
+export function getSiteGeoJson(siteId: string): Promise<SiteGeoJsonResponse> {
+  return request<SiteGeoJsonResponse>(`/api/sites/${siteId}/geojson?radius_m=1000`);
 }
 
 export function retrieveEvidence(siteId: string, query: string): Promise<RetrievedEvidence> {

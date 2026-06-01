@@ -8,13 +8,15 @@ from app.services.evidence_validator import ValidationFailure
 from app.services.llm_provider import LLMConfigurationError, LLMGenerationError
 from app.services.planning_ingestion import PlanningIngestionService
 from app.services.site_resolver import SiteNotFoundError, SiteResolver
+from app.services.source_registry import SourceRegistry
 from app.services.taxonomy import load_taxonomy
 
 
 router = APIRouter(prefix="/api/dossiers", tags=["dossiers"])
 resolver = SiteResolver()
 retriever = DocumentRetriever()
-generator = DossierGenerator()
+source_registry = SourceRegistry()
+generator = DossierGenerator(source_registry=source_registry)
 ingestion = PlanningIngestionService()
 
 
@@ -54,6 +56,7 @@ def generate_dossier(request: DossierGenerateRequest) -> DossierGenerateResponse
             evidence=retrieved.results,
             taxonomy=load_taxonomy(),
         )
+        source_registry.refresh_snapshot()
         save_dossier(dossier)
         return DossierGenerateResponse(dossier=dossier)
     except SiteNotFoundError as exc:

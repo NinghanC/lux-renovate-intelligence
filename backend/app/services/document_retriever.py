@@ -1,26 +1,20 @@
 import json
 import math
-import re
-import unicodedata
 from collections import Counter
 from pathlib import Path
 
 from app.core.config import settings
 from app.core.paths import PROCESSED_DIR, PROCESSED_UPLOADS_DIR
-from app.models.schemas import EvidenceObject, EvidenceType, PlanningChunk, RetrievedEvidence
+from app.models.schemas import EvidenceLocator, EvidenceObject, EvidenceType, PlanningChunk, RetrievedEvidence
 from app.services.embedding_provider import EmbeddingProvider, cosine_similarity
 from app.services.json_store import read_jsonl
+from app.services.multilingual_terms import expand_query_tokens, infer_support_categories, tokenize
 from app.services.rerank_provider import RerankProvider
+from app.services.source_registry import SourceRegistry, source_id_for_document
 
 
 PLANNING_CHUNKS_PATH = PROCESSED_DIR / "planning_chunks.jsonl"
 PLANNING_EMBEDDINGS_PATH = PROCESSED_DIR / "planning_embeddings.jsonl"
-
-
-def tokenize(text: str) -> list[str]:
-    normalized = unicodedata.normalize("NFKD", text.lower())
-    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
-    return [token for token in re.findall(r"[a-z0-9_]{3,}", normalized) if token]
 
 
 class DocumentRetriever:
@@ -31,12 +25,14 @@ class DocumentRetriever:
         embeddings_path: Path = PLANNING_EMBEDDINGS_PATH,
         embedding_provider: EmbeddingProvider | None = None,
         rerank_provider: RerankProvider | None = None,
+        source_registry: SourceRegistry | None = None,
     ):
         self.chunks_path = chunks_path
         self.uploads_dir = uploads_dir
         self.embeddings_path = embeddings_path
         self.embedding_provider = embedding_provider or EmbeddingProvider()
         self.rerank_provider = rerank_provider or RerankProvider()
+        self.source_registry = source_registry or SourceRegistry()
 
     def load_chunks(self, include_uploaded: bool = True) -> list[PlanningChunk]:
         chunks = read_jsonl(self.chunks_path, PlanningChunk)
@@ -146,26 +142,34 @@ class DocumentRetriever:
         return RetrievedEvidence(query=query, results=results, limitations=limitations)
 
     def _keyword_scores(self, query: str, chunks: list[PlanningChunk]) -> dict[str, float]:
-        query_tokens = Counter(tokenize(query))
+        query_tokens = expand_query_tokens(query)
         if not query_tokens:
             return {}
         document_frequency: Counter[str] = Counter()
         chunk_tokens: dict[str, Counter[str]] = {}
+        chunk_lengths: dict[str, int] = {}
         for chunk in chunks:
             tokens = Counter(tokenize(f"{chunk.document_name} {chunk.text}"))
             chunk_tokens[chunk.chunk_id] = tokens
+            chunk_lengths[chunk.chunk_id] = sum(tokens.values())
             for token in tokens:
                 document_frequency[token] += 1
         total_docs = max(len(chunks), 1)
+        average_length = sum(chunk_lengths.values()) / total_docs if total_docs else 1
+        k1 = settings.keyword_bm25_k1
+        b = settings.keyword_bm25_b
         scores: dict[str, float] = {}
         for chunk in chunks:
             tokens = chunk_tokens[chunk.chunk_id]
+            doc_length = max(chunk_lengths[chunk.chunk_id], 1)
             score = 0.0
             for token, query_weight in query_tokens.items():
-                if token not in tokens:
+                term_frequency = tokens.get(token, 0)
+                if not term_frequency:
                     continue
-                idf = math.log(1 + (total_docs / (1 + document_frequency[token])))
-                score += query_weight * tokens[token] * idf
+                idf = math.log(1 + (total_docs - document_frequency[token] + 0.5) / (document_frequency[token] + 0.5))
+                denominator = term_frequency + k1 * (1 - b + b * (doc_length / max(average_length, 1)))
+                score += query_weight * idf * ((term_frequency * (k1 + 1)) / denominator)
             if score:
                 scores[chunk.chunk_id] = score
         if scores:
@@ -230,16 +234,30 @@ class DocumentRetriever:
 
     def _chunk_to_evidence(self, chunk: PlanningChunk, score: float) -> EvidenceObject:
         evidence_type = EvidenceType.uploaded_document if chunk.document_type == "uploaded" else EvidenceType.planning_document
+        source = self.source_registry.source_for_chunk(chunk)
+        source_id = chunk.source_id or chunk.metadata.get("source_id") or source_id_for_document(chunk.document_id)
+        supports = infer_support_categories(f"{chunk.document_name}\n{chunk.text}")
+        parser = chunk.metadata.get("parser") or (source.parser if source else None)
         return EvidenceObject(
             evidence_id=f"ev_{chunk.chunk_id}",
             evidence_type=evidence_type,
+            source_id=source.source_id if source else source_id,
             source_name=chunk.document_name,
             source_path=chunk.source_path,
             source_url=chunk.source_url,
             page=chunk.page,
             chunk_id=chunk.chunk_id,
+            locator=EvidenceLocator(page=chunk.page, chunk_id=chunk.chunk_id),
+            supports=supports,
+            parser=str(parser) if parser else None,
             content=chunk.text,
-            metadata={"commune": chunk.commune, "document_type": chunk.document_type, **chunk.metadata},
+            metadata={
+                "commune": chunk.commune,
+                "document_type": chunk.document_type,
+                "source_type": source.source_type if source else None,
+                "source_authority": source.authority if source else None,
+                **chunk.metadata,
+            },
             confidence="medium",
             score=score,
         )

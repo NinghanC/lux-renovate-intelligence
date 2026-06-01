@@ -4,6 +4,7 @@ from app.core.paths import RAW_PLANNING_DIR, RAW_UPLOADS_DIR, SAMPLE_DIR
 from app.models.schemas import PlanningChunk
 from app.services.document_parser import chunk_document, parse_document
 from app.services.json_store import read_json
+from app.services.source_registry import source_id_for_document
 
 
 SOURCES_PATH = SAMPLE_DIR / "planning_sources.json"
@@ -25,6 +26,7 @@ class PlanningIngestionService:
             chunks.extend(
                 chunk_document(
                     document_id=source["document_id"],
+                    source_id=source_id_for_document(source["document_id"]),
                     document_name=source["document_name"],
                     document_type=source["document_type"],
                     commune=source["commune"],
@@ -47,6 +49,7 @@ class PlanningIngestionService:
             pages = parse_document(path)
             parsed = chunk_document(
                 document_id=document_id,
+                source_id=source_id_for_document(document_id),
                 document_name=path.name,
                 document_type="uploaded",
                 commune=commune,
@@ -72,4 +75,3 @@ class PlanningIngestionService:
         if include_uploaded_documents:
             chunks.extend(self.load_uploaded_chunks(site_id=site_id, commune=commune))
         return chunks
-

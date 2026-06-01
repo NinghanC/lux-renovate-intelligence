@@ -1,0 +1,83 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.0887, 49.5869]
+      },
+      "properties": {
+        "feature_id": "geo_lux_laangfur_demo_site",
+        "name": "Laangfur demo coordinate",
+        "feature_type": "demo_site",
+        "site_id": "demo_lux_laangfur_001"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.0911, 49.5881]
+      },
+      "properties": {
+        "feature_id": "geo_lux_laangfur_planning_context",
+        "name": "Laangfur planning context marker",
+        "feature_type": "planning_context",
+        "site_id": "demo_lux_laangfur_001"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.1616, 49.8704]
+      },
+      "properties": {
+        "feature_id": "geo_diekirch_cite_militaire_demo_site",
+        "name": "Cite Militaire demo coordinate",
+        "feature_type": "demo_site",
+        "site_id": "demo_diekirch_cite_militaire_001"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.1647, 49.8716]
+      },
+      "properties": {
+        "feature_id": "geo_diekirch_cite_militaire_context",
+        "name": "Cite Militaire planning context marker",
+        "feature_type": "planning_context",
+        "site_id": "demo_diekirch_cite_militaire_001"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.0215, 49.6269]
+      },
+      "properties": {
+        "feature_id": "geo_mamer_steinchenwies_demo_site",
+        "name": "Steinchenwies demo coordinate",
+        "feature_type": "demo_site",
+        "site_id": "demo_mamer_steinchenwies_001"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.024, 49.6279]
+      },
+      "properties": {
+        "feature_id": "geo_mamer_steinchenwies_context",
+        "name": "Steinchenwies planning context marker",
+        "feature_type": "planning_context",
+        "site_id": "demo_mamer_steinchenwies_001"
+      }
+    }
+  ]
+}

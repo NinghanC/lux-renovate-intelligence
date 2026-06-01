@@ -89,6 +89,7 @@ def split_text(text: str, max_chars: int = 1200, overlap_chars: int = 150) -> li
 def chunk_document(
     *,
     document_id: str,
+    source_id: str | None = None,
     document_name: str,
     document_type: str,
     commune: str,
@@ -98,6 +99,7 @@ def chunk_document(
     max_chars: int = 1200,
 ) -> list[PlanningChunk]:
     chunks: list[PlanningChunk] = []
+    resolved_source_id = source_id or f"src_{document_id}"
     for page in pages:
         for chunk_index, text in enumerate(split_text(page.text, max_chars=max_chars), start=1):
             chunk_id = f"{document_id}_p{page.page:03d}_c{chunk_index:03d}"
@@ -105,6 +107,7 @@ def chunk_document(
                 PlanningChunk(
                     chunk_id=chunk_id,
                     document_id=document_id,
+                    source_id=resolved_source_id,
                     document_name=document_name,
                     document_type=document_type,
                     commune=commune,
@@ -112,7 +115,7 @@ def chunk_document(
                     text=text,
                     source_path=str(source_path),
                     source_url=source_url,
-                    metadata={"parser": page.parser, "max_chars": max_chars},
+                    metadata={"parser": page.parser, "source_id": resolved_source_id, "max_chars": max_chars},
                 )
             )
     return chunks

@@ -11,7 +11,13 @@ The MVP uses official public planning documents that are small enough to downloa
 | Diekirch | Commune de Diekirch PAG/PAP PDF | Second commune retrieval sample |
 | Mamer | Commune de Mamer Steinchenwies PAG PDF | Third demo commune retrieval sample |
 
-Source URLs are listed in `data/sample/planning_sources.json`.
+Source URLs are listed in `data/sample/planning_sources.json`. Registered source metadata is exposed through `GET /api/sources` and snapshotted to `data/processed/source_registry.json` during dossier generation.
+
+## Lightweight GeoJSON
+
+`data/sample/demo_geospatial.geojson` provides point features for demo coordinates and nearby planning-context markers. The backend calculates Haversine distance in meters and returns a site-specific FeatureCollection through `GET /api/sites/{site_id}/geojson`.
+
+This is intentionally not a full GIS implementation. Coordinates and distances support orientation in the UI only and are not cadastral, legal, or engineering evidence.
 
 ## Referenced For Production
 
@@ -27,3 +33,4 @@ Source URLs are listed in `data/sample/planning_sources.json`.
 - No SECO internal data or customer confidential data is used.
 - Demo coordinates are contextual and not cadastral survey evidence.
 - `data/sample/geospatial_context.json` provides lightweight public-data-style site context and explicitly marks footprints as not verified.
+- `data/sample/demo_geospatial.geojson` is treated as heterogeneous geospatial context and not as verified building footprint evidence.

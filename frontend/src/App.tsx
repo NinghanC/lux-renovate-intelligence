@@ -1,10 +1,24 @@
-import { AlertTriangle, Loader2, Maximize2, Play, X, UploadCloud } from "lucide-react";
+import { AlertTriangle, Loader2, MapPinPlus, Maximize2, Play, Trash2, X, UploadCloud } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
-import { generateDossier, getDocumentSourceUrl, getSiteContext, getSites, uploadDocument } from "./api/client";
-import type { DemoSite, Dossier, EvidenceObject, SiteContext } from "./types/dossier";
+import { CircleMarker, MapContainer, Popup, TileLayer, useMapEvents } from "react-leaflet";
+import {
+  generateDossier,
+  getDocumentSourceUrl,
+  getSiteContext,
+  getSiteGeoJson,
+  getSites,
+  uploadDocument
+} from "./api/client";
+import type { DemoSite, Dossier, EvidenceObject, GeoJsonFeature, SiteContext, SiteGeoJsonResponse } from "./types/dossier";
 
 type ViewKey = "matrix" | "gaps" | "checklist" | "evidence" | "limitations";
+
+type DrawnMapPoint = {
+  id: string;
+  lat: number;
+  lon: number;
+  distance_m: number;
+};
 
 const views: Array<{ key: ViewKey; label: string }> = [
   { key: "matrix", label: "Readiness Matrix" },
@@ -76,12 +90,6 @@ function evidenceSourceHref(evidence: EvidenceObject | undefined) {
   return null;
 }
 
-function evidenceRefLabel(evidence: EvidenceObject | undefined, fallback: string) {
-  if (!evidence) return fallback;
-  const fileName = evidenceFileName(evidence);
-  return evidence.page ? `${fileName} · p.${evidence.page}` : fileName;
-}
-
 function evidenceRefParts(evidence: EvidenceObject | undefined, fallback: string) {
   if (!evidence) return { fileName: fallback, page: null as number | null };
   return { fileName: evidenceFileName(evidence), page: evidence.page };
@@ -99,10 +107,36 @@ function scoredCoverageCategories(dossier: Dossier) {
   return coverage.available + coverage.partial + coverage.missing + coverage.unknown;
 }
 
+function formatDistance(distance?: number) {
+  if (distance === undefined) return null;
+  if (distance < 1000) return `${Math.round(distance)} m`;
+  return `${(distance / 1000).toFixed(1)} km`;
+}
+
+function distanceMeters(left: CoordinatesLike, right: CoordinatesLike) {
+  const radius = 6371008.8;
+  const lat1 = (left.lat * Math.PI) / 180;
+  const lat2 = (right.lat * Math.PI) / 180;
+  const deltaLat = ((right.lat - left.lat) * Math.PI) / 180;
+  const deltaLon = ((right.lon - left.lon) * Math.PI) / 180;
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+type CoordinatesLike = {
+  lat: number;
+  lon: number;
+};
+
 function App() {
   const [sites, setSites] = useState<DemoSite[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState("");
   const [siteContext, setSiteContext] = useState<SiteContext | null>(null);
+  const [siteGeoJson, setSiteGeoJson] = useState<SiteGeoJsonResponse | null>(null);
+  const [drawnMapPointsBySite, setDrawnMapPointsBySite] = useState<Record<string, DrawnMapPoint[]>>({});
+  const [mapDrawingEnabled, setMapDrawingEnabled] = useState(false);
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("matrix");
   const [highlightedEvidenceId, setHighlightedEvidenceId] = useState<string | null>(null);
@@ -119,6 +153,7 @@ function App() {
     () => new Map((dossier?.evidence ?? []).map((item) => [item.evidence_id, item])),
     [dossier]
   );
+  const drawnMapPoints = drawnMapPointsBySite[selectedSiteId] ?? [];
 
   useEffect(() => {
     void getSites()
@@ -132,11 +167,16 @@ function App() {
   useEffect(() => {
     if (!selectedSiteId) return;
     setDossier(null);
+    setSiteGeoJson(null);
+    setMapDrawingEnabled(false);
     setActiveView("matrix");
     setHighlightedEvidenceId(null);
     setError(null);
-    void getSiteContext(selectedSiteId)
-      .then((payload) => setSiteContext(payload))
+    void Promise.all([getSiteContext(selectedSiteId), getSiteGeoJson(selectedSiteId)])
+      .then(([context, geojson]) => {
+        setSiteContext(context);
+        setSiteGeoJson(geojson);
+      })
       .catch((err: Error) => setError(err.message));
   }, [selectedSiteId]);
 
@@ -182,6 +222,25 @@ function App() {
     if (href) {
       window.open(href, "_blank", "noopener,noreferrer");
     }
+  }
+
+  function handleAddDrawnMapPoint(lat: number, lon: number) {
+    if (!siteContext || !selectedSiteId) return;
+    const point: DrawnMapPoint = {
+      id: `drawn_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+      lat,
+      lon,
+      distance_m: distanceMeters(siteContext.coordinates, { lat, lon })
+    };
+    setDrawnMapPointsBySite((current) => ({
+      ...current,
+      [selectedSiteId]: [...(current[selectedSiteId] ?? []), point]
+    }));
+  }
+
+  function handleClearDrawnMapPoints() {
+    if (!selectedSiteId) return;
+    setDrawnMapPointsBySite((current) => ({ ...current, [selectedSiteId]: [] }));
   }
 
   return (
@@ -235,7 +294,16 @@ function App() {
           </div>
         ) : null}
 
-          <SiteContextBlock siteContext={siteContext} onOpenMap={() => setMapFullscreen(true)} />
+          <SiteContextBlock
+            siteContext={siteContext}
+            siteGeoJson={siteGeoJson}
+            drawnMapPoints={drawnMapPoints}
+            drawingEnabled={mapDrawingEnabled}
+            onToggleDrawing={() => setMapDrawingEnabled((enabled) => !enabled)}
+            onAddDrawnPoint={handleAddDrawnMapPoint}
+            onClearDrawnPoints={handleClearDrawnMapPoints}
+            onOpenMap={() => setMapFullscreen(true)}
+          />
 
         {dossier ? (
           <>
@@ -248,15 +316,15 @@ function App() {
                 <span>Evidence Coverage Score</span>
                 <strong>{dossier.coverage_score.coverage_score}%</strong>
                 <small>
-                  available {dossier.coverage_score.available} · partial {dossier.coverage_score.partial} · missing{" "}
+                  available {dossier.coverage_score.available} / partial {dossier.coverage_score.partial} / missing{" "}
                   {dossier.coverage_score.missing}
                 </small>
                 <small>
                   based on {scoredCoverageCategories(dossier)} applicable matrix categories
                   {dossier.coverage_score.not_applicable
-                    ? ` · excluded ${dossier.coverage_score.not_applicable} not applicable`
+                    ? ` / excluded ${dossier.coverage_score.not_applicable} not applicable`
                     : ""}
-                  {dossier.coverage_score.unknown ? ` · unknown ${dossier.coverage_score.unknown}` : ""}
+                  {dossier.coverage_score.unknown ? ` / unknown ${dossier.coverage_score.unknown}` : ""}
                 </small>
                 {dossier.coverage_score.unknown ? (
                   <small>Unknown is counted as uncovered evidence.</small>
@@ -284,12 +352,21 @@ function App() {
         ) : (
           <section className="empty-state">
             <h2>Ready to generate</h2>
-            <p>Generate runs parsing, chunking, hybrid retrieval, rerank, LLM generation, and validation.</p>
+            <p>Generate runs parsing, chunking, multilingual BM25 retrieval, optional rerank, LLM generation, and validation.</p>
           </section>
         )}
       </section>
       {mapFullscreen && siteContext ? (
-        <MapDialog siteContext={siteContext} onClose={() => setMapFullscreen(false)} />
+        <MapDialog
+          siteContext={siteContext}
+          siteGeoJson={siteGeoJson}
+          drawnMapPoints={drawnMapPoints}
+          drawingEnabled={mapDrawingEnabled}
+          onToggleDrawing={() => setMapDrawingEnabled((enabled) => !enabled)}
+          onAddDrawnPoint={handleAddDrawnMapPoint}
+          onClearDrawnPoints={handleClearDrawnMapPoints}
+          onClose={() => setMapFullscreen(false)}
+        />
       ) : null}
     </main>
   );
@@ -297,9 +374,21 @@ function App() {
 
 function SiteContextBlock({
   siteContext,
+  siteGeoJson,
+  drawnMapPoints,
+  drawingEnabled,
+  onToggleDrawing,
+  onAddDrawnPoint,
+  onClearDrawnPoints,
   onOpenMap
 }: {
   siteContext: SiteContext | null;
+  siteGeoJson: SiteGeoJsonResponse | null;
+  drawnMapPoints: DrawnMapPoint[];
+  drawingEnabled: boolean;
+  onToggleDrawing: () => void;
+  onAddDrawnPoint: (lat: number, lon: number) => void;
+  onClearDrawnPoints: () => void;
   onOpenMap: () => void;
 }) {
   if (!siteContext) {
@@ -333,7 +422,19 @@ function SiteContextBlock({
           <dt>Nearby</dt>
           <dd>{siteContext.nearby_features.length ? siteContext.nearby_features.join(", ") : "Unknown"}</dd>
         </dl>
-        <SiteMap siteContext={siteContext} onOpenMap={onOpenMap} />
+        <div className="site-map-stack">
+          <SiteMap
+            siteContext={siteContext}
+            siteGeoJson={siteGeoJson}
+            drawnMapPoints={drawnMapPoints}
+            drawingEnabled={drawingEnabled}
+            onToggleDrawing={onToggleDrawing}
+            onAddDrawnPoint={onAddDrawnPoint}
+            onClearDrawnPoints={onClearDrawnPoints}
+            onOpenMap={onOpenMap}
+          />
+          <GeoJsonSummary siteGeoJson={siteGeoJson} />
+        </div>
       </div>
     </section>
   );
@@ -341,22 +442,51 @@ function SiteContextBlock({
 
 function SiteMap({
   siteContext,
+  siteGeoJson,
+  drawnMapPoints,
+  drawingEnabled,
+  onToggleDrawing,
+  onAddDrawnPoint,
+  onClearDrawnPoints,
   onOpenMap,
   fullscreen = false
 }: {
   siteContext: SiteContext;
+  siteGeoJson?: SiteGeoJsonResponse | null;
+  drawnMapPoints?: DrawnMapPoint[];
+  drawingEnabled: boolean;
+  onToggleDrawing: () => void;
+  onAddDrawnPoint: (lat: number, lon: number) => void;
+  onClearDrawnPoints: () => void;
   onOpenMap?: () => void;
   fullscreen?: boolean;
 }) {
   const position: [number, number] = [siteContext.coordinates.lat, siteContext.coordinates.lon];
+  const geoFeatures = siteGeoJson?.geojson.features ?? [];
+  const drawnPoints = drawnMapPoints ?? [];
 
   return (
-    <div className={fullscreen ? "site-map fullscreen-map" : "site-map"}>
-      {onOpenMap ? (
-        <button className="map-expand-button" type="button" onClick={onOpenMap} title="Open full-screen map">
-          <Maximize2 size={16} />
+    <div className={`site-map${fullscreen ? " fullscreen-map" : ""}${drawingEnabled ? " drawing-enabled" : ""}`}>
+      <div className="map-toolbar">
+        {onOpenMap ? (
+          <button className="map-expand-button" type="button" onClick={onOpenMap} title="Open full-screen map">
+            <Maximize2 size={16} />
+          </button>
+        ) : null}
+        <button
+          className={`map-tool-button ${drawingEnabled ? "active" : ""}`}
+          type="button"
+          onClick={onToggleDrawing}
+          title="Add map point"
+        >
+          <MapPinPlus size={16} />
         </button>
-      ) : null}
+        {drawnPoints.length ? (
+          <button className="map-tool-button" type="button" onClick={onClearDrawnPoints} title="Clear map points">
+            <Trash2 size={16} />
+          </button>
+        ) : null}
+      </div>
       <MapContainer
         key={siteContext.site_id}
         center={position}
@@ -365,6 +495,7 @@ function SiteMap({
         zoomControl
         className="map-container"
       >
+        <MapClickHandler enabled={drawingEnabled} onAddPoint={onAddDrawnPoint} />
         <TileLayer
           attribution='Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -380,12 +511,106 @@ function SiteMap({
             Coordinates are approximate
           </Popup>
         </CircleMarker>
+        {geoFeatures
+          .filter((feature) => feature.properties.feature_type !== "demo_site")
+          .map((feature) => (
+            <GeoJsonPoint key={feature.properties.feature_id ?? feature.properties.name} feature={feature} />
+          ))}
+        {drawnPoints.map((point) => (
+          <DrawnPoint key={point.id} point={point} />
+        ))}
       </MapContainer>
     </div>
   );
 }
 
-function MapDialog({ siteContext, onClose }: { siteContext: SiteContext; onClose: () => void }) {
+function MapClickHandler({
+  enabled,
+  onAddPoint
+}: {
+  enabled: boolean;
+  onAddPoint: (lat: number, lon: number) => void;
+}) {
+  useMapEvents({
+    click(event) {
+      if (enabled) onAddPoint(event.latlng.lat, event.latlng.lng);
+    }
+  });
+  return null;
+}
+
+function DrawnPoint({ point }: { point: DrawnMapPoint }) {
+  return (
+    <CircleMarker
+      center={[point.lat, point.lon]}
+      radius={7}
+      pathOptions={{ color: "#2563eb", fillColor: "#3b82f6", fillOpacity: 0.9, weight: 2 }}
+    >
+      <Popup>
+        Drawn point
+        <br />
+        {formatDistance(point.distance_m)} from demo coordinate
+      </Popup>
+    </CircleMarker>
+  );
+}
+
+function GeoJsonPoint({ feature }: { feature: GeoJsonFeature }) {
+  const [lon, lat] = feature.geometry.coordinates;
+  const distance = formatDistance(feature.properties.distance_m);
+  return (
+    <CircleMarker
+      center={[lat, lon]}
+      radius={6}
+      pathOptions={{ color: "#d97706", fillColor: "#f59e0b", fillOpacity: 0.85, weight: 2 }}
+    >
+      <Popup>
+        {feature.properties.name ?? "GeoJSON feature"}
+        {distance ? (
+          <>
+            <br />
+            {distance} from demo coordinate
+          </>
+        ) : null}
+      </Popup>
+    </CircleMarker>
+  );
+}
+
+function GeoJsonSummary({ siteGeoJson }: { siteGeoJson: SiteGeoJsonResponse | null }) {
+  const features = (siteGeoJson?.geojson.features ?? []).filter((feature) => feature.properties.feature_type !== "demo_site");
+  if (!features.length) return null;
+  return (
+    <div className="geojson-summary">
+      {features.slice(0, 3).map((feature) => (
+        <div key={feature.properties.feature_id ?? feature.properties.name}>
+          <span>{feature.properties.name ?? "GeoJSON feature"}</span>
+          <strong>{formatDistance(feature.properties.distance_m)}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MapDialog({
+  siteContext,
+  siteGeoJson,
+  drawnMapPoints,
+  drawingEnabled,
+  onToggleDrawing,
+  onAddDrawnPoint,
+  onClearDrawnPoints,
+  onClose
+}: {
+  siteContext: SiteContext;
+  siteGeoJson: SiteGeoJsonResponse | null;
+  drawnMapPoints: DrawnMapPoint[];
+  drawingEnabled: boolean;
+  onToggleDrawing: () => void;
+  onAddDrawnPoint: (lat: number, lon: number) => void;
+  onClearDrawnPoints: () => void;
+  onClose: () => void;
+}) {
   return (
     <div className="map-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Site map">
       <div className="map-dialog">
@@ -393,7 +618,7 @@ function MapDialog({ siteContext, onClose }: { siteContext: SiteContext; onClose
           <div>
             <h2>Site map</h2>
             <p>
-              {siteContext.address} · {siteContext.coordinates.lat.toFixed(4)},{" "}
+              {siteContext.address} / {siteContext.coordinates.lat.toFixed(4)},{" "}
               {siteContext.coordinates.lon.toFixed(4)}
             </p>
           </div>
@@ -401,7 +626,16 @@ function MapDialog({ siteContext, onClose }: { siteContext: SiteContext; onClose
             <X size={18} />
           </button>
         </div>
-        <SiteMap siteContext={siteContext} fullscreen />
+        <SiteMap
+          siteContext={siteContext}
+          siteGeoJson={siteGeoJson}
+          drawnMapPoints={drawnMapPoints}
+          drawingEnabled={drawingEnabled}
+          onToggleDrawing={onToggleDrawing}
+          onAddDrawnPoint={onAddDrawnPoint}
+          onClearDrawnPoints={onClearDrawnPoints}
+          fullscreen
+        />
       </div>
     </div>
   );

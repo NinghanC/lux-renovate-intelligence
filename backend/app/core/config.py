@@ -6,34 +6,117 @@ from dotenv import load_dotenv
 from app.core.paths import ROOT_DIR
 
 
-load_dotenv(ROOT_DIR / ".env")
+load_dotenv(ROOT_DIR / ".env", override=True)
+
+
+def _llm_provider() -> str:
+    return os.getenv("LLM_PROVIDER", "databricks")
+
+
+def _llm_base_url() -> str:
+    configured = os.getenv("LLM_BASE_URL")
+    if configured:
+        return configured
+    if _llm_provider() == "databricks":
+        return "https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints"
+    return ""
+
+
+def _rerank_provider() -> str:
+    return os.getenv("RERANK_PROVIDER", "aws_bedrock")
+
+
+def _rerank_model() -> str:
+    configured = os.getenv("RERANK_MODEL")
+    if configured:
+        return configured
+    return "cohere.rerank-v3-5:0"
+
+
+def _embedding_base_url() -> str:
+    configured = os.getenv("EMBEDDING_BASE_URL")
+    if configured:
+        return configured
+    return _llm_base_url()
+
+
+def _embedding_api_key() -> str | None:
+    configured = os.getenv("EMBEDDING_API_KEY")
+    if configured:
+        return configured
+    if _embedding_base_url() == _llm_base_url():
+        return os.getenv("LLM_API_KEY")
+    return None
+
+
+def _ocr_provider() -> str:
+    return os.getenv("OCR_PROVIDER", "aws_textract")
+
+
+def _ocr_model() -> str:
+    configured = os.getenv("OCR_MODEL")
+    if configured:
+        return configured
+    if _ocr_provider() == "databricks_vision":
+        return "databricks-llama-4-maverick"
+    return "aws-textract-detect-document-text"
+
+
+def _ocr_base_url() -> str | None:
+    configured = os.getenv("OCR_BASE_URL")
+    if configured:
+        return configured
+    if _ocr_provider() == "databricks_vision":
+        return _llm_base_url()
+    return None
+
+
+def _ocr_api_key() -> str | None:
+    configured = os.getenv("OCR_API_KEY")
+    if configured:
+        return configured
+    if _ocr_provider() == "databricks_vision":
+        return os.getenv("LLM_API_KEY")
+    return None
 
 
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "LuxRenovate Intelligence"
+    llm_provider: str = _llm_provider()
     llm_api_key: str | None = os.getenv("LLM_API_KEY")
-    llm_base_url: str | None = os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    llm_model: str | None = os.getenv("LLM_MODEL", "qwen3.6-flash")
+    llm_base_url: str | None = _llm_base_url()
+    llm_model: str | None = os.getenv("LLM_MODEL", "databricks-meta-llama-3-3-70b-instruct")
     llm_response_format: str | None = os.getenv("LLM_RESPONSE_FORMAT") or None
     llm_timeout_seconds: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "180"))
-    embedding_api_key: str | None = os.getenv("EMBEDDING_API_KEY")
-    embedding_base_url: str | None = os.getenv("EMBEDDING_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    embedding_model: str | None = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
+    embedding_api_key: str | None = _embedding_api_key()
+    embedding_base_url: str | None = _embedding_base_url()
+    embedding_model: str | None = os.getenv("EMBEDDING_MODEL", "databricks-qwen3-embedding-0-6b")
     embedding_batch_size: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "10"))
-    rerank_api_key: str | None = os.getenv("RERANK_API_KEY") or os.getenv("LLM_API_KEY")
-    rerank_endpoint: str = os.getenv(
-        "RERANK_ENDPOINT",
-        "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
-    )
-    rerank_model: str = os.getenv("RERANK_MODEL", "qwen3-rerank")
+    rerank_provider: str = _rerank_provider()
+    rerank_model: str = _rerank_model()
     rerank_top_n: int = int(os.getenv("RERANK_TOP_N", "8"))
-    ocr_api_key: str | None = os.getenv("OCR_API_KEY") or os.getenv("LLM_API_KEY")
-    ocr_base_url: str | None = os.getenv("OCR_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    ocr_model: str | None = os.getenv("OCR_MODEL", "qwen-vl-ocr-latest")
+    rerank_aws_region: str = os.getenv("RERANK_AWS_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+    aws_access_key_id: str | None = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_session_token: str | None = os.getenv("AWS_SESSION_TOKEN")
+    ocr_provider: str = _ocr_provider()
+    ocr_api_key: str | None = _ocr_api_key()
+    ocr_base_url: str | None = _ocr_base_url()
+    ocr_model: str | None = _ocr_model()
+    ocr_aws_region: str = os.getenv("OCR_AWS_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
     ocr_timeout_seconds: int = int(os.getenv("OCR_TIMEOUT_SECONDS", "120"))
     ocr_min_text_chars: int = int(os.getenv("OCR_MIN_TEXT_CHARS", "80"))
     ocr_render_dpi: int = int(os.getenv("OCR_RENDER_DPI", "144"))
+    multilingual_query_terms_enabled: bool = os.getenv("MULTILINGUAL_QUERY_TERMS_ENABLED", "true").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    multilingual_query_term_weight: float = float(os.getenv("MULTILINGUAL_QUERY_TERM_WEIGHT", "0.45"))
+    keyword_bm25_k1: float = float(os.getenv("KEYWORD_BM25_K1", "1.4"))
+    keyword_bm25_b: float = float(os.getenv("KEYWORD_BM25_B", "0.75"))
     cors_origins: tuple[str, ...] = tuple(
         item.strip()
         for item in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
@@ -50,10 +133,16 @@ class Settings:
 
     @property
     def rerank_configured(self) -> bool:
-        return bool(self.rerank_api_key and self.rerank_endpoint and self.rerank_model)
+        if self.rerank_provider == "aws_bedrock":
+            return bool(self.rerank_model and self.rerank_aws_region)
+        return False
 
     @property
     def ocr_configured(self) -> bool:
+        if self.ocr_provider == "aws_textract":
+            return bool(self.ocr_aws_region)
+        if self.ocr_provider == "databricks_vision":
+            return bool(self.ocr_api_key and self.ocr_base_url and self.ocr_model)
         return bool(self.ocr_api_key and self.ocr_base_url and self.ocr_model)
 
 

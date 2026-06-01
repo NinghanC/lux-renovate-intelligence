@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from app.core.paths import RAW_UPLOADS_DIR
 from app.models.schemas import UploadResponse
+from app.services.source_registry import source_id_for_document
 
 
 SUPPORTED_SUFFIXES = {".pdf", ".txt", ".md", ".markdown"}
@@ -26,6 +27,7 @@ def save_and_chunk_upload(
     target_path.write_bytes(content)
     return UploadResponse(
         document_id=document_id,
+        source_id=source_id_for_document(f"upload_{target_path.stem}"),
         document_type="uploaded",
         filename=filename,
         chunks_created=0,

@@ -4,8 +4,10 @@
 
 - JSON/JSONL instead of a database.
 - On-demand parsing at Generate time instead of a prebuilt chunk index.
-- Keyword + embedding retrieval with DashScope rerank, without a separate vector database.
+- Multilingual BM25 + optional embedding retrieval, without a separate vector database.
+- AWS Bedrock Cohere rerank as an external rerank step instead of migrating the whole retrieval stack into Databricks Vector Search immediately.
 - Local file uploads instead of object storage.
+- Lightweight GeoJSON with coordinate distance only, not full GIS.
 - Minimal React UI focused on the workflow.
 
 ## Why
@@ -17,5 +19,6 @@ The take-home challenge values a complete and practical MVP over heavy infrastru
 - Generate is slower because parsing, embedding, rerank, and LLM generation happen after the click.
 - PDF extraction quality depends on source PDF text quality.
 - Demo sites are approximate and not official cadastral records.
-- The full AI flow depends on DashScope API availability.
+- The full AI flow depends on the configured LLM provider availability.
+- Rerank depends on AWS Bedrock permissions and model access when `RERANK_PROVIDER=aws_bedrock`.
 - No production security or audit controls are implemented.

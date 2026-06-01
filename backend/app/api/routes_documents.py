@@ -5,15 +5,17 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.paths import RAW_PLANNING_DIR, RAW_UPLOADS_DIR
-from app.models.schemas import RetrievedEvidence, UploadResponse
+from app.models.schemas import RetrievedEvidence, SourceRecord, UploadResponse
 from app.services.document_retriever import DocumentRetriever
 from app.services.document_upload import save_and_chunk_upload
 from app.services.site_resolver import SiteNotFoundError, SiteResolver
+from app.services.source_registry import SourceRegistry
 
 
 router = APIRouter(prefix="/api", tags=["documents"])
 resolver = SiteResolver()
 retriever = DocumentRetriever()
+source_registry = SourceRegistry()
 
 
 def _is_allowed_source_path(path: Path) -> bool:
@@ -61,6 +63,13 @@ def retrieve_evidence(
         limit=limit,
         include_uploaded=include_uploaded_documents,
     )
+
+
+@router.get("/sources", response_model=list[SourceRecord])
+def list_sources(refresh: bool = False) -> list[SourceRecord]:
+    if refresh:
+        return source_registry.refresh_snapshot()
+    return source_registry.list_sources()
 
 
 @router.get("/documents/source")
