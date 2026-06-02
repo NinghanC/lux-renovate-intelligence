@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.core.config import settings
+from app.core.config import aws_credentials_available, settings
 from app.models.schemas import PlanningChunk
 
 
@@ -20,7 +20,7 @@ class RerankProvider:
     @property
     def configured(self) -> bool:
         if self.provider == "aws_bedrock":
-            return bool(self.model and self.aws_region)
+            return bool(self.model and self.aws_region and aws_credentials_available())
         return False
 
     def rerank(self, *, query: str, chunks: list[PlanningChunk], top_n: int) -> dict[str, float]:

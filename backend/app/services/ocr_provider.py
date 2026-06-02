@@ -4,7 +4,7 @@ from typing import Any
 
 import httpx
 
-from app.core.config import settings
+from app.core.config import aws_credentials_available, settings
 
 
 class OCRProvider:
@@ -33,7 +33,7 @@ class OCRProvider:
     @property
     def configured(self) -> bool:
         if self.provider == "aws_textract":
-            return bool(self.aws_region)
+            return bool(self.aws_region and aws_credentials_available())
         return bool(self.api_key and self.base_url and self.model)
 
     def extract_text_from_png(self, image_bytes: bytes) -> str:

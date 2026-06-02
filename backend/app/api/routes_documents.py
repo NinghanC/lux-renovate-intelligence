@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.paths import RAW_PLANNING_DIR, RAW_UPLOADS_DIR
-from app.models.schemas import RetrievedEvidence, SourceRecord, UploadResponse
+from app.models.schemas import RetrievedEvidence, SourceRecordPublic, UploadResponse
 from app.services.document_retriever import DocumentRetriever
 from app.services.document_upload import save_and_chunk_upload
 from app.services.site_resolver import SiteNotFoundError, SiteResolver
@@ -29,6 +29,7 @@ async def upload_document(
     file: UploadFile = File(...),
     site_id: str | None = Form(default=None),
     commune: str | None = Form(default=None),
+    source_subtype: str | None = Form(default=None),
 ) -> UploadResponse:
     try:
         resolved_commune = commune
@@ -40,6 +41,7 @@ async def upload_document(
             content=content,
             site_id=site_id,
             commune=resolved_commune or "uploaded",
+            source_subtype=source_subtype,
         )
     except (ValueError, SiteNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -65,19 +67,21 @@ def retrieve_evidence(
     )
 
 
-@router.get("/sources", response_model=list[SourceRecord])
-def list_sources(refresh: bool = False) -> list[SourceRecord]:
-    if refresh:
-        return source_registry.refresh_snapshot()
-    return source_registry.list_sources()
+@router.get("/sources", response_model=list[SourceRecordPublic])
+def list_sources(refresh: bool = False) -> list[SourceRecordPublic]:
+    sources = source_registry.refresh_snapshot() if refresh else source_registry.list_sources()
+    return [SourceRecordPublic.model_validate(source.model_dump()) for source in sources]
 
 
-@router.get("/documents/source")
-def get_document_source(path: str) -> FileResponse:
-    source_path = Path(path)
-    if not _is_allowed_source_path(source_path):
-        raise HTTPException(status_code=403, detail="Source path is outside allowed data directories.")
-    resolved = source_path.resolve()
+@router.get("/sources/{source_id}/file")
+def get_source_file(source_id: str) -> FileResponse:
+    source = source_registry.get_by_id(source_id)
+    if source is None or not source.local_path:
+        raise HTTPException(status_code=404, detail="Source file not found for this source.")
+    resolved = Path(source.local_path)
+    if not _is_allowed_source_path(resolved):
+        raise HTTPException(status_code=403, detail="Source file is outside allowed data directories.")
+    resolved = resolved.resolve()
     if not resolved.exists() or not resolved.is_file():
         raise HTTPException(status_code=404, detail="Source file not found.")
     media_type = mimetypes.guess_type(resolved.name)[0] or "application/octet-stream"

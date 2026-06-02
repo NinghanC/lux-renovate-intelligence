@@ -38,3 +38,10 @@ def test_bedrock_model_id_becomes_foundation_model_arn():
     provider = RerankProvider(provider="aws_bedrock", model="cohere.rerank-v3-5:0", aws_region="us-east-1")
 
     assert provider._bedrock_model_arn() == "arn:aws:bedrock:us-east-1::foundation-model/cohere.rerank-v3-5:0"
+
+
+def test_bedrock_rerank_requires_resolved_credentials(monkeypatch):
+    monkeypatch.setattr("app.services.rerank_provider.aws_credentials_available", lambda: False)
+    provider = RerankProvider(provider="aws_bedrock", model="cohere.rerank-v3-5:0", aws_region="us-east-1")
+
+    assert not provider.configured

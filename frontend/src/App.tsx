@@ -42,6 +42,19 @@ const priorityLabels: Record<string, string> = {
   low: "Low"
 };
 
+const uploadSubtypeOptions = [
+  { value: "", label: "Auto classify" },
+  { value: "condition_observation", label: "Condition observation" },
+  { value: "inspection_report", label: "Inspection report" },
+  { value: "drawing_or_plan", label: "Drawing or plan" },
+  { value: "maintenance_record", label: "Maintenance record" },
+  { value: "energy_certificate_or_audit", label: "Energy certificate or audit" },
+  { value: "fire_safety_dossier", label: "Fire safety dossier" },
+  { value: "hazardous_material_survey", label: "Hazardous material survey" },
+  { value: "owner_note", label: "Owner note" },
+  { value: "photo_or_image_note", label: "Photo or scan note" }
+];
+
 const buildingTypeLabels: Record<string, string> = {
   residential: "Residential",
   mixed_use: "Mixed use",
@@ -66,6 +79,7 @@ function priorityLabel(value: string) {
 
 function evidenceTypeLabel(type: string) {
   if (type === "derived_missing_information") return "Missing information";
+  if (type === "site_profile") return "Site profile";
   if (type === "planning_document") return "Planning document";
   if (type === "uploaded_document") return "Uploaded document";
   if (type === "geospatial") return "Geospatial context";
@@ -85,8 +99,10 @@ function withPageHash(url: string, page?: number | null) {
 
 function evidenceSourceHref(evidence: EvidenceObject | undefined) {
   if (!evidence) return null;
+  if (evidence.source_id && ["official_planning_pdf", "uploaded_document", "uploaded_image"].includes(evidence.source_type ?? "")) {
+    return getDocumentSourceUrl(evidence.source_id, evidence.page);
+  }
   if (evidence.source_url) return withPageHash(evidence.source_url, evidence.page);
-  if (evidence.source_path) return getDocumentSourceUrl(evidence.source_path, evidence.page);
   return null;
 }
 
@@ -96,10 +112,32 @@ function evidenceRefParts(evidence: EvidenceObject | undefined, fallback: string
 }
 
 function evidenceFileName(evidence: EvidenceObject) {
-  const path = evidence.source_path ?? evidence.source_name;
-  const rawName = path.split(/[\\/]/).pop() ?? evidence.source_name;
+  const rawName = evidence.source_name.split(/[\\/]/).pop() ?? evidence.source_name;
   const uploadedMatch = rawName.match(/^.+?_upload_[a-f0-9]{12}_(.+)$/i);
   return uploadedMatch?.[1] ?? rawName;
+}
+
+function sourceTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    official_planning_pdf: "Official planning",
+    uploaded_document: "Uploaded documents",
+    uploaded_image: "Uploaded images",
+    site_profile: "Site profile",
+    geojson: "Geo context",
+    derived: "Derived missing info"
+  };
+  return labels[type] ?? evidenceTypeLabel(type);
+}
+
+function sourceTypeCoverage(evidence: EvidenceObject[]) {
+  const counts = new Map<string, number>();
+  for (const item of evidence) {
+    const key = item.source_type ?? item.evidence_type;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([type, count]) => ({ type, count }))
+    .sort((left, right) => right.count - left.count || sourceTypeLabel(left.type).localeCompare(sourceTypeLabel(right.type)));
 }
 
 function scoredCoverageCategories(dossier: Dossier) {
@@ -143,6 +181,8 @@ function App() {
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadPanelOpen, setUploadPanelOpen] = useState(false);
+  const [uploadSubtype, setUploadSubtype] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const selectedSite = useMemo(
@@ -186,7 +226,8 @@ function App() {
     setUploading(true);
     setError(null);
     try {
-      await uploadDocument(selectedSiteId, file);
+      await uploadDocument(selectedSiteId, file, uploadSubtype || undefined);
+      setUploadPanelOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -273,15 +314,42 @@ function App() {
         ) : null}
 
         <div className="actions">
-          <label className="icon-button" title="Upload sample document">
+          <button
+            className="icon-button"
+            type="button"
+            title="Upload document"
+            onClick={() => setUploadPanelOpen((open) => !open)}
+            disabled={!selectedSiteId || uploading}
+          >
             <UploadCloud size={18} />
-            <input type="file" accept=".pdf,.txt,.md,.markdown" onChange={handleUpload} />
-          </label>
+          </button>
           <button className="primary-button" onClick={handleGenerate} disabled={!selectedSiteId || loading}>
             {loading ? <Loader2 className="spin" size={18} /> : <Play size={18} />}
             Generate
           </button>
         </div>
+
+        {uploadPanelOpen ? (
+          <div className="upload-panel">
+            <label htmlFor="upload-subtype">Document type</label>
+            <select
+              id="upload-subtype"
+              value={uploadSubtype}
+              onChange={(event) => setUploadSubtype(event.target.value)}
+            >
+              {uploadSubtypeOptions.map((option) => (
+                <option key={option.value || "auto"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <label className="file-select-button">
+              {uploading ? <Loader2 className="spin" size={16} /> : <UploadCloud size={16} />}
+              {uploading ? "Uploading" : "Choose file"}
+              <input type="file" accept=".pdf,.txt,.md,.markdown" onChange={handleUpload} disabled={uploading} />
+            </label>
+          </div>
+        ) : null}
 
         {uploading ? <p className="quiet">Upload stored locally. It will be parsed during Generate.</p> : null}
       </aside>
@@ -312,24 +380,27 @@ function App() {
                 <h2>Renovation readiness dossier</h2>
                 <p>{dossier.building_summary}</p>
               </div>
-              <div className="hero-stat">
-                <span>Evidence Coverage Score</span>
-                <strong>{dossier.coverage_score.coverage_score}%</strong>
-                <small>
-                  available {dossier.coverage_score.available} / partial {dossier.coverage_score.partial} / missing{" "}
-                  {dossier.coverage_score.missing}
-                </small>
-                <small>
-                  based on {scoredCoverageCategories(dossier)} applicable matrix categories
-                  {dossier.coverage_score.not_applicable
-                    ? ` / excluded ${dossier.coverage_score.not_applicable} not applicable`
-                    : ""}
-                  {dossier.coverage_score.unknown ? ` / unknown ${dossier.coverage_score.unknown}` : ""}
-                </small>
-                {dossier.coverage_score.unknown ? (
-                  <small>Unknown is counted as uncovered evidence.</small>
-                ) : null}
-                <em>Not a risk or compliance score.</em>
+              <div className="hero-side">
+                <div className="hero-stat">
+                  <span>Evidence Coverage Score</span>
+                  <strong>{dossier.coverage_score.coverage_score}%</strong>
+                  <small>
+                    available {dossier.coverage_score.available} / partial {dossier.coverage_score.partial} / missing{" "}
+                    {dossier.coverage_score.missing}
+                  </small>
+                  <small>
+                    based on {scoredCoverageCategories(dossier)} applicable matrix categories
+                    {dossier.coverage_score.not_applicable
+                      ? ` / excluded ${dossier.coverage_score.not_applicable} not applicable`
+                      : ""}
+                    {dossier.coverage_score.unknown ? ` / unknown ${dossier.coverage_score.unknown}` : ""}
+                  </small>
+                  {dossier.coverage_score.unknown ? (
+                    <small>Unknown is counted as uncovered evidence.</small>
+                  ) : null}
+                  <em>Not a risk or compliance score.</em>
+                </div>
+                <SourceTypeCoverage evidence={dossier.evidence} />
               </div>
             </section>
 
@@ -741,6 +812,24 @@ function List({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+function SourceTypeCoverage({ evidence }: { evidence: EvidenceObject[] }) {
+  const items = sourceTypeCoverage(evidence);
+  if (!items.length) return null;
+  return (
+    <div className="source-coverage">
+      <span>Source Type Coverage</span>
+      <div>
+        {items.map((item) => (
+          <p key={item.type}>
+            <small>{sourceTypeLabel(item.type)}</small>
+            <strong>{item.count}</strong>
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EvidenceRefs({
   refs,
   evidenceById,
@@ -792,7 +881,11 @@ function EvidencePanel({
         >
           <div className="evidence-meta">
             <strong>{evidenceFileName(item)}</strong>
-            <span>{item.page ? `page ${item.page}` : evidenceTypeLabel(item.evidence_type)}</span>
+            <span>
+              {sourceTypeLabel(item.source_type ?? item.evidence_type)}
+              {item.source_subtype ? ` / ${labelize(item.source_subtype)}` : ""}
+              {item.page ? ` / page ${item.page}` : ""}
+            </span>
           </div>
           <span className={`evidence-type ${item.evidence_type}`}>{evidenceTypeLabel(item.evidence_type)}</span>
           <p>{item.content}</p>

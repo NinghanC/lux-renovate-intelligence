@@ -85,8 +85,17 @@ def test_taxonomy_complete_accepts_all_categories():
 
 
 def test_unknown_evidence_refs_are_rejected():
+    dossier_draft = draft(refs=["ev_missing"])
+    for item in dossier_draft.inspection_checklist:
+        item.evidence_refs = ["ev_001"]
     with pytest.raises(ValidationFailure):
-        validate_evidence_refs(draft(refs=["ev_missing"]), evidence())
+        validate_evidence_refs(dossier_draft, evidence())
+
+
+def test_user_visible_items_require_evidence_refs():
+    dossier_draft = draft(refs=["ev_001"])
+    with pytest.raises(ValidationFailure, match="inspection_checklist"):
+        validate_evidence_refs(dossier_draft, evidence())
 
 
 def test_evidence_source_integrity_rejects_page_outside_source_range():

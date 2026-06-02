@@ -1,12 +1,22 @@
 from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import Dossier, DossierGenerateRequest, DossierGenerateResponse
+from app.core.config import settings
+from app.services.context_evidence import build_context_evidence
 from app.services.document_retriever import DocumentRetriever
 from app.services.dossier_generator import DossierGenerator
-from app.services.dossier_store import DossierNotFoundError, load_dossier, save_dossier
+from app.services.dossier_store import (
+    DossierNotFoundError,
+    cache_key_for_signature,
+    load_cached_dossier,
+    load_dossier,
+    save_dossier,
+    save_dossier_cache,
+)
 from app.services.evidence_validator import ValidationFailure
 from app.services.llm_provider import LLMConfigurationError, LLMGenerationError
 from app.services.planning_ingestion import PlanningIngestionService
+from app.services.geospatial import GeoJsonService
 from app.services.site_resolver import SiteNotFoundError, SiteResolver
 from app.services.source_registry import SourceRegistry
 from app.services.taxonomy import load_taxonomy
@@ -18,6 +28,7 @@ retriever = DocumentRetriever()
 source_registry = SourceRegistry()
 generator = DossierGenerator(source_registry=source_registry)
 ingestion = PlanningIngestionService()
+geojson_service = GeoJsonService()
 
 
 DEFAULT_QUERY = (
@@ -25,23 +36,51 @@ DEFAULT_QUERY = (
     "building envelope humidity MEP energy hazardous materials accessibility site inspection"
 )
 
+PURPOSE_QUERIES = {
+    "planning_context": "PAG PAP zoning planning constraints protected sector setbacks renovation permissions",
+    "documentation_gaps": "existing drawings as-built records structural calculations fire safety approvals energy certificate hazardous materials survey",
+    "technical_risk": "structural cracks humidity water infiltration MEP electrical heating roof facade hazardous materials old building risk signals",
+    "site_inspection": "site inspection checklist basement moisture facade roof MEP fire safety accessibility egress verification",
+    "renovation_constraints": "renovation scope constraints permits access logistics building envelope energy accessibility planning restrictions",
+}
+
 
 @router.post("/generate", response_model=DossierGenerateResponse)
 def generate_dossier(request: DossierGenerateRequest) -> DossierGenerateResponse:
     try:
         site_context = resolver.build_context(request.site_id)
+        cache_signature = build_generate_cache_signature(
+            request=request,
+            commune=site_context.commune,
+        )
+        cache_key = cache_key_for_signature(cache_signature)
+        if not request.force_refresh:
+            cached_dossier = load_cached_dossier(cache_key)
+            if cached_dossier is not None:
+                return DossierGenerateResponse(dossier=cached_dossier, cache_hit=True)
+
         chunks = ingestion.load_generate_chunks(
             commune=site_context.commune,
             site_id=request.site_id,
             include_uploaded_documents=request.include_uploaded_documents,
         )
-        retrieved = retriever.retrieve_from_chunks(
-            chunks=chunks,
-            commune=site_context.commune,
-            query=request.query or DEFAULT_QUERY,
-            limit=request.max_evidence,
-            use_precomputed_embeddings=False,
-        )
+        if request.query:
+            retrieved = retriever.retrieve_from_chunks(
+                chunks=chunks,
+                commune=site_context.commune,
+                query=request.query or DEFAULT_QUERY,
+                limit=request.max_evidence,
+                use_precomputed_embeddings=False,
+            )
+        else:
+            retrieved = retriever.retrieve_for_purposes(
+                chunks=chunks,
+                commune=site_context.commune,
+                purpose_queries=PURPOSE_QUERIES,
+                limit_per_purpose=5,
+                total_limit=request.max_evidence,
+                use_precomputed_embeddings=False,
+            )
         if not retrieved.results:
             raise HTTPException(
                 status_code=422,
@@ -51,14 +90,23 @@ def generate_dossier(request: DossierGenerateRequest) -> DossierGenerateResponse
                     "hints": retrieved.limitations,
                 },
             )
+        site_geojson = geojson_service.build_site_geojson(
+            site_id=request.site_id,
+            coordinates=site_context.coordinates,
+        )
+        evidence = [
+            *retrieved.results,
+            *build_context_evidence(site_context, site_geojson),
+        ]
         dossier = generator.generate(
             site_context=site_context,
-            evidence=retrieved.results,
+            evidence=evidence,
             taxonomy=load_taxonomy(),
         )
         source_registry.refresh_snapshot()
         save_dossier(dossier)
-        return DossierGenerateResponse(dossier=dossier)
+        save_dossier_cache(cache_key, dossier, cache_signature)
+        return DossierGenerateResponse(dossier=dossier, cache_hit=False)
     except SiteNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LLMConfigurationError as exc:
@@ -84,3 +132,43 @@ def get_dossier(dossier_id: str) -> Dossier:
         return load_dossier(dossier_id)
     except DossierNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+def build_generate_cache_signature(*, request: DossierGenerateRequest, commune: str) -> dict:
+    return {
+        "cache_version": 1,
+        "site_id": request.site_id,
+        "commune": commune,
+        "query": request.query or None,
+        "include_uploaded_documents": request.include_uploaded_documents,
+        "max_evidence": request.max_evidence,
+        "retrieval": {
+            "mode": "custom_query" if request.query else "purpose_based",
+            "purpose_queries": PURPOSE_QUERIES if not request.query else None,
+            "keyword_bm25_k1": settings.keyword_bm25_k1,
+            "keyword_bm25_b": settings.keyword_bm25_b,
+            "multilingual_terms_enabled": settings.multilingual_query_terms_enabled,
+            "multilingual_term_weight": settings.multilingual_query_term_weight,
+        },
+        "providers": {
+            "llm_provider": settings.llm_provider,
+            "llm_base_url": settings.llm_base_url,
+            "llm_model": settings.llm_model,
+            "llm_response_format": settings.llm_response_format,
+            "embedding_configured": settings.embedding_configured,
+            "embedding_base_url": settings.embedding_base_url,
+            "embedding_model": settings.embedding_model,
+            "rerank_configured": settings.rerank_configured,
+            "rerank_provider": settings.rerank_provider,
+            "rerank_model": settings.rerank_model,
+            "rerank_top_n": settings.rerank_top_n,
+            "ocr_configured": settings.ocr_configured,
+            "ocr_provider": settings.ocr_provider,
+            "ocr_model": settings.ocr_model,
+        },
+        "planning_sources": ingestion.planning_signature(commune),
+        "uploaded_sources": ingestion.uploaded_signature(
+            site_id=request.site_id,
+            include_uploaded_documents=request.include_uploaded_documents,
+        ),
+    }

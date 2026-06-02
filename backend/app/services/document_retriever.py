@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.paths import PROCESSED_DIR, PROCESSED_UPLOADS_DIR
 from app.models.schemas import EvidenceLocator, EvidenceObject, EvidenceType, PlanningChunk, RetrievedEvidence
 from app.services.embedding_provider import EmbeddingProvider, cosine_similarity
+from app.services.evidence_metadata import evidence_role_for_document_type, infer_upload_subtype, modality_for_path
 from app.services.json_store import read_jsonl
 from app.services.multilingual_terms import expand_query_tokens, infer_support_categories, tokenize
 from app.services.rerank_provider import RerankProvider
@@ -141,6 +142,102 @@ class DocumentRetriever:
         results = [self._chunk_to_evidence(chunk, score=round(score, 4)) for score, chunk in scored[:limit]]
         return RetrievedEvidence(query=query, results=results, limitations=limitations)
 
+    def retrieve_for_purposes(
+        self,
+        *,
+        chunks: list[PlanningChunk],
+        commune: str,
+        purpose_queries: dict[str, str],
+        limit_per_purpose: int = 5,
+        total_limit: int = 12,
+        use_precomputed_embeddings: bool = False,
+    ) -> RetrievedEvidence:
+        filtered = [
+            chunk
+            for chunk in chunks
+            if chunk.commune.lower() == commune.lower() or chunk.document_type == "uploaded"
+        ]
+        if not filtered:
+            return RetrievedEvidence(
+                query="purpose-based retrieval",
+                results=[],
+                limitations=[f"No planning or uploaded evidence was available for commune '{commune}'."],
+            )
+
+        purpose_scores: dict[str, dict[str, float]] = {}
+        chunk_purposes: dict[str, list[str]] = {}
+        for purpose, query in purpose_queries.items():
+            scores = self._keyword_scores(query, filtered)
+            purpose_scores[purpose] = scores
+            for chunk_id, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)[:limit_per_purpose]:
+                if score <= 0:
+                    continue
+                chunk_purposes.setdefault(chunk_id, []).append(purpose)
+
+        combined_query = " ".join(purpose_queries.values())
+        keyword_scores: dict[str, float] = {}
+        for chunk in filtered:
+            scores = [scores.get(chunk.chunk_id, 0.0) for scores in purpose_scores.values()]
+            if scores and max(scores) > 0:
+                keyword_scores[chunk.chunk_id] = max(scores)
+        embedding_scores = self._embedding_scores(
+            combined_query,
+            filtered,
+            use_precomputed=use_precomputed_embeddings,
+        )
+        scored: list[tuple[float, PlanningChunk]] = []
+        for chunk in filtered:
+            keyword_score = keyword_scores.get(chunk.chunk_id, 0.0)
+            embedding_score = embedding_scores.get(chunk.chunk_id, 0.0)
+            combined = keyword_score if not embedding_scores else 0.7 * keyword_score + 0.3 * embedding_score
+            if combined > 0:
+                scored.append((combined, chunk))
+        scored.sort(key=lambda item: item[0], reverse=True)
+
+        limitations = []
+        if not scored:
+            return RetrievedEvidence(
+                query="purpose-based retrieval: " + " | ".join(f"{key}: {value}" for key, value in purpose_queries.items()),
+                results=[],
+                limitations=["No relevant evidence matched the purpose-based queries; no planning facts should be inferred."],
+            )
+        if not embedding_scores:
+            limitations.append("Embedding retrieval is not configured or failed; purpose-based keyword retrieval was used.")
+
+        rerank_scores = self._rerank_scores(
+            combined_query,
+            [chunk for _, chunk in scored[: max(total_limit * 3, 20)]],
+            top_n=total_limit,
+        )
+        if rerank_scores:
+            reranked: list[tuple[float, PlanningChunk]] = []
+            for original_score, chunk in scored[: max(total_limit * 3, 20)]:
+                rerank_score = rerank_scores.get(chunk.chunk_id)
+                if rerank_score is not None:
+                    reranked.append((0.25 * original_score + 0.75 * rerank_score, chunk))
+            reranked.sort(key=lambda item: item[0], reverse=True)
+            scored = reranked + [item for item in scored if item[1].chunk_id not in rerank_scores]
+        else:
+            limitations.append("Rerank retrieval is not configured or failed; purpose-based hybrid scores were used.")
+
+        results = []
+        for score, chunk in scored[:total_limit]:
+            item = self._chunk_to_evidence(chunk, score=round(score, 4))
+            purposes = chunk_purposes.get(chunk.chunk_id, [])
+            if not purposes:
+                purposes = [
+                    purpose
+                    for purpose, scores in purpose_scores.items()
+                    if scores.get(chunk.chunk_id, 0.0) > 0
+                ]
+            item = item.model_copy(update={"metadata": {**item.metadata, "retrieval_purposes": purposes}})
+            results.append(item)
+        return RetrievedEvidence(
+            query="purpose-based retrieval: " + " | ".join(f"{key}: {value}" for key, value in purpose_queries.items()),
+            results=results,
+            limitations=limitations,
+        )
+
     def _keyword_scores(self, query: str, chunks: list[PlanningChunk]) -> dict[str, float]:
         query_tokens = expand_query_tokens(query)
         if not query_tokens:
@@ -236,14 +333,29 @@ class DocumentRetriever:
         evidence_type = EvidenceType.uploaded_document if chunk.document_type == "uploaded" else EvidenceType.planning_document
         source = self.source_registry.source_for_chunk(chunk)
         source_id = chunk.source_id or chunk.metadata.get("source_id") or source_id_for_document(chunk.document_id)
+        if chunk.metadata.get("source_subtype"):
+            source_subtype = str(chunk.metadata["source_subtype"])
+        elif source and source.source_subtype:
+            source_subtype = source.source_subtype
+        elif chunk.document_type == "uploaded":
+            source_subtype = infer_upload_subtype(chunk.document_name, chunk.text)
+        else:
+            source_subtype = chunk.document_type.lower()
+        source_type = source.source_type if source else "uploaded_document" if chunk.document_type == "uploaded" else "official_planning_pdf"
+        authority = source.authority if source else "user_supplied" if chunk.document_type == "uploaded" else "municipal_official"
         supports = infer_support_categories(f"{chunk.document_name}\n{chunk.text}")
         parser = chunk.metadata.get("parser") or (source.parser if source else None)
         return EvidenceObject(
             evidence_id=f"ev_{chunk.chunk_id}",
             evidence_type=evidence_type,
             source_id=source.source_id if source else source_id,
+            source_type=source_type,
+            source_subtype=source_subtype,
+            modality=source.modality if source and source.modality else modality_for_path(chunk.source_path),
+            authority_level=authority,
+            evidence_role=evidence_role_for_document_type(chunk.document_type, source_subtype),
             source_name=chunk.document_name,
-            source_path=chunk.source_path,
+            source_path=None,
             source_url=chunk.source_url,
             page=chunk.page,
             chunk_id=chunk.chunk_id,

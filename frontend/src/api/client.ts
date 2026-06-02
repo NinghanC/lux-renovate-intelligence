@@ -38,10 +38,11 @@ export function retrieveEvidence(siteId: string, query: string): Promise<Retriev
   return request<RetrievedEvidence>(`/api/evidence?${params.toString()}`);
 }
 
-export function uploadDocument(siteId: string, file: File): Promise<unknown> {
+export function uploadDocument(siteId: string, file: File, sourceSubtype?: string): Promise<unknown> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("site_id", siteId);
+  if (sourceSubtype) formData.append("source_subtype", sourceSubtype);
   return request<unknown>("/api/documents/upload", {
     method: "POST",
     body: formData
@@ -57,8 +58,7 @@ export async function generateDossier(siteId: string): Promise<Dossier> {
   return payload.dossier;
 }
 
-export function getDocumentSourceUrl(sourcePath: string, page?: number | null): string {
-  const params = new URLSearchParams({ path: sourcePath });
+export function getDocumentSourceUrl(sourceId: string, page?: number | null): string {
   const pageHash = page ? `#page=${page}` : "";
-  return `${API_BASE_URL}/api/documents/source?${params.toString()}${pageHash}`;
+  return `${API_BASE_URL}/api/sources/${encodeURIComponent(sourceId)}/file${pageHash}`;
 }

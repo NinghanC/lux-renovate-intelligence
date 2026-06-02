@@ -148,8 +148,44 @@ select {
   background: #ffffff;
 }
 
-.icon-button input {
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.icon-button input,
+.file-select-button input {
   display: none;
+}
+
+.upload-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dbe1e5;
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.upload-panel label {
+  color: #3d4a50;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.file-select-button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #cbd5da;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2933;
+  cursor: pointer;
+  font-weight: 750;
 }
 
 .primary-button {
@@ -395,7 +431,7 @@ select {
 
 .dossier-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, 240px);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   gap: 18px;
   align-items: start;
   min-width: 0;
@@ -420,7 +456,14 @@ select {
   text-transform: uppercase;
 }
 
-.hero-stat {
+.hero-side {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hero-stat,
+.source-coverage {
   display: grid;
   justify-items: start;
   gap: 6px;
@@ -450,6 +493,36 @@ select {
 
 .hero-stat em {
   font-style: normal;
+}
+
+.source-coverage {
+  background: #ffffff;
+}
+
+.source-coverage > span {
+  color: #1f2933;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.source-coverage div {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+}
+
+.source-coverage p {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  color: #64727a;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.source-coverage strong {
+  color: #0f766e;
 }
 
 .tabs {

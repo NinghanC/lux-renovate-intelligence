@@ -50,18 +50,27 @@ def validate_taxonomy_complete(draft: DossierDraft) -> None:
 
 
 def validate_evidence_refs(dossier: Dossier | DossierDraft, evidence: list[EvidenceObject]) -> None:
+    missing_required_refs: list[str] = []
     known = {item.evidence_id for item in evidence}
     refs: set[str] = set()
     for finding in dossier.planning_findings:
+        if not finding.evidence_refs:
+            missing_required_refs.append(f"planning_findings.{finding.finding_id}")
         refs.update(finding.evidence_refs)
     for item in dossier.readiness_matrix:
         refs.update(item.evidence_refs)
     for item in dossier.missing_information_checklist:
         refs.update(item.evidence_refs)
     for signal in dossier.technical_risk_signals:
+        if not signal.evidence_refs:
+            missing_required_refs.append(f"technical_risk_signals.{signal.signal_id}")
         refs.update(signal.evidence_refs)
     for item in dossier.inspection_checklist:
+        if not item.evidence_refs:
+            missing_required_refs.append(f"inspection_checklist.{item.item_id}")
         refs.update(item.evidence_refs)
+    if missing_required_refs:
+        raise ValidationFailure(f"Dossier items require evidence_refs: {missing_required_refs}")
     missing = sorted(ref for ref in refs if ref not in known)
     if missing:
         raise ValidationFailure(f"Dossier references unknown evidence IDs: {missing}")

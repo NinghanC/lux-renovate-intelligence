@@ -3,8 +3,8 @@
 ## Kept Simple
 
 - JSON/JSONL instead of a database.
-- On-demand parsing at Generate time instead of a prebuilt chunk index.
-- Multilingual BM25 + optional embedding retrieval, without a separate vector database.
+- Source-hash checked local planning chunk cache instead of a managed ingestion store.
+- Purpose-based multilingual BM25 + optional embedding retrieval, without a separate vector database.
 - AWS Bedrock Cohere rerank as an external rerank step instead of migrating the whole retrieval stack into Databricks Vector Search immediately.
 - Local file uploads instead of object storage.
 - Lightweight GeoJSON with coordinate distance only, not full GIS.
@@ -16,7 +16,7 @@ The take-home challenge values a complete and practical MVP over heavy infrastru
 
 ## Accepted Limitations
 
-- Generate is slower because parsing, embedding, rerank, and LLM generation happen after the click.
+- Generate can still be slower than a production stack because retrieval, embedding, rerank, and LLM generation happen after the click.
 - PDF extraction quality depends on source PDF text quality.
 - Demo sites are approximate and not official cadastral records.
 - The full AI flow depends on the configured LLM provider availability.

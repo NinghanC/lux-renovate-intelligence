@@ -19,14 +19,15 @@ SECO engineers need to prepare for renovation, due diligence, or inspection work
 - Provides 3 Luxembourg demo sites.
 - Downloads and parses 4 official public planning PDFs from Luxembourg City, Diekirch, and Mamer.
 - Runs document parsing, chunking, embedding retrieval, rerank, and generation when the user clicks Generate.
-- Retrieves evidence with multilingual BM25 keyword search, Databricks-compatible embeddings, and optional rerank.
-- Maintains a source registry for planning PDFs, uploaded documents, GeoJSON, and system-derived evidence.
-- Adds source-aware evidence records with source ID, page locator, parser metadata, support categories, and retrieval score.
+- Retrieves evidence with purpose-based multilingual BM25 keyword search, Databricks-compatible embeddings, and optional rerank.
+- Maintains a source registry for planning PDFs, site profiles, uploaded documents, GeoJSON, and system-derived evidence.
+- Adds source-aware evidence records with source ID, source subtype, modality, role, page locator, parser metadata, support categories, and retrieval score.
 - Adds lightweight GeoJSON coordinate context and distance calculations without a full GIS stack.
 - Adds derived missing-information evidence to the evidence panel after dossier generation.
 - Exposes FastAPI endpoints for sites, uploads, retrieval, dossier generation, and saved dossier lookup.
 - Uses Databricks Serving Endpoints for LLM and embedding calls, AWS Bedrock Cohere Rerank 3.5 for rerank, and AWS Textract for scanned-page OCR fallback.
 - Validates schema, evidence references, source registry links, page ranges, taxonomy completeness, source-type support, and forbidden final engineering claims.
+- Shows source type coverage so users can see whether a dossier is supported by official planning PDFs, uploads, site profile, geo context, or derived missing-information evidence.
 - Shows the workflow in a React + TypeScript frontend.
 
 ## Out Of Scope
@@ -95,7 +96,7 @@ Then edit `.env` with your local Databricks token and AWS credentials. Defaults 
 
 - `LLM_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints`
 - `LLM_MODEL=databricks-meta-llama-3-3-70b-instruct`
-- `EMBEDDING_MODEL=databricks-qwen3-embedding-0-6b`
+- `EMBEDDING_MODEL=your-databricks-embedding-endpoint`
 - `RERANK_MODEL=cohere.rerank-v3-5:0`
 - `OCR_MODEL=aws-textract-detect-document-text`
 
@@ -110,7 +111,7 @@ LLM_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints
 LLM_MODEL=databricks-meta-llama-3-3-70b-instruct
 EMBEDDING_API_KEY=
 EMBEDDING_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints
-EMBEDDING_MODEL=databricks-qwen3-embedding-0-6b
+EMBEDDING_MODEL=your-databricks-embedding-endpoint
 ```
 
 Do not commit real API tokens.
@@ -142,7 +143,7 @@ This creates:
 
 - `data/raw/planning/*.pdf`
 
-Generate now parses and chunks the raw PDFs on demand. The product flow does not depend on pre-chunked files.
+Generate uses a source-hash checked planning chunk cache when available. If the cache is missing or stale, the backend parses and chunks the raw planning PDFs and writes a fresh local cache.
 
 The optional ingestion script can still generate `data/processed/planning_chunks.jsonl` as an audit/debug artifact:
 
@@ -182,6 +183,7 @@ http://localhost:5173
 - `POST /api/documents/upload`
 - `GET /api/evidence?site_id=...&query=...`
 - `GET /api/sources`
+- `GET /api/sources/{source_id}/file`
 - `POST /api/dossiers/generate`
 - `GET /api/dossiers/{dossier_id}`
 
@@ -202,9 +204,9 @@ npm run build
 - Multilingual BM25 keyword retrieval is the default because it works without external services and handles mixed French, German, Dutch, and English terminology better than plain English keyword matching.
 - Embedding retrieval is abstracted behind `EmbeddingProvider`.
 - Rerank is handled through `RerankProvider`. The local recommended setup uses AWS Bedrock Cohere Rerank 3.5 after multilingual BM25 + Databricks embedding retrieval.
-- Source registry and source-aware evidence schema make citations auditable before moving to database-backed infrastructure.
+- Source registry and source-aware evidence schema make citations auditable before moving to database-backed infrastructure. Public source APIs use `source_id`, not local filesystem paths.
 - GeoJSON distance context is intentionally lightweight: coordinates and Haversine distance only, not cadastral or engineering inference.
-- The Generate endpoint runs the full pipeline on demand instead of reading a prebuilt chunk index.
+- The Generate endpoint runs the full retrieval/generation/validation flow on demand while reusing validated planning chunk caches when source files are unchanged.
 - The evidence coverage score is not a regulatory, risk, safety, or compliance score.
 - The UI is a product workspace, not a landing page.
 
@@ -223,9 +225,9 @@ npm run build
 - Replace local upload storage with governed document storage.
 - Add RBAC, audit logs, prompt/evidence logging, and data retention.
 - Use production OCR for scanned drawings and reports.
-- Add a managed vector index and retrieval evaluation set.
+- Add a managed vector index and a dedicated evaluation layer for retrieval quality, generation regression checks, and golden dossier comparisons.
 - Integrate SECO historical inspection reports, defect observations, photos, measurements, and project metadata.
 
 ## Three-Month Direction
 
-The next version would add an internal Building Intelligence Layer: historical case retrieval, recurring defect pattern analytics, experience-enhanced inspection checklist generation, photo and measurement evidence ingestion, and human-reviewed report draft assistance.
+The next version would add an internal Building Intelligence Layer: historical case retrieval, recurring defect pattern analytics, experience-enhanced inspection checklist generation, photo and measurement evidence ingestion, and human-reviewed report draft assistance. A dedicated evaluation layer is deferred to this roadmap rather than included in the current MVP.

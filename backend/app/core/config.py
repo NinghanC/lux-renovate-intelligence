@@ -80,6 +80,22 @@ def _ocr_api_key() -> str | None:
     return None
 
 
+def aws_credentials_available() -> bool:
+    if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
+        return True
+    profile = os.getenv("AWS_PROFILE")
+    if not profile:
+        return False
+    try:
+        import boto3
+    except ImportError:
+        return False
+    try:
+        return boto3.Session(profile_name=profile).get_credentials() is not None
+    except Exception:
+        return False
+
+
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "LuxRenovate Intelligence"
@@ -91,7 +107,7 @@ class Settings:
     llm_timeout_seconds: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "180"))
     embedding_api_key: str | None = _embedding_api_key()
     embedding_base_url: str | None = _embedding_base_url()
-    embedding_model: str | None = os.getenv("EMBEDDING_MODEL", "databricks-qwen3-embedding-0-6b")
+    embedding_model: str | None = os.getenv("EMBEDDING_MODEL", "your-databricks-embedding-endpoint")
     embedding_batch_size: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "10"))
     rerank_provider: str = _rerank_provider()
     rerank_model: str = _rerank_model()
@@ -134,13 +150,13 @@ class Settings:
     @property
     def rerank_configured(self) -> bool:
         if self.rerank_provider == "aws_bedrock":
-            return bool(self.rerank_model and self.rerank_aws_region)
+            return bool(self.rerank_model and self.rerank_aws_region and aws_credentials_available())
         return False
 
     @property
     def ocr_configured(self) -> bool:
         if self.ocr_provider == "aws_textract":
-            return bool(self.ocr_aws_region)
+            return bool(self.ocr_aws_region and aws_credentials_available())
         if self.ocr_provider == "databricks_vision":
             return bool(self.ocr_api_key and self.ocr_base_url and self.ocr_model)
         return bool(self.ocr_api_key and self.ocr_base_url and self.ocr_model)

@@ -5,10 +5,12 @@ import fitz
 
 from app.core.paths import PROCESSED_DIR, RAW_PLANNING_DIR, RAW_UPLOADS_DIR, SAMPLE_DIR
 from app.models.schemas import PlanningChunk, SourceRecord
+from app.services.evidence_metadata import infer_upload_subtype, is_upload_metadata_path, modality_for_path, read_upload_metadata
 from app.services.json_store import read_json, write_json
 
 
 PLANNING_SOURCES_PATH = SAMPLE_DIR / "planning_sources.json"
+DEMO_SITES_PATH = SAMPLE_DIR / "demo_sites.json"
 SOURCE_REGISTRY_PATH = PROCESSED_DIR / "source_registry.json"
 
 
@@ -60,7 +62,12 @@ class SourceRegistry:
         self.registry_path = registry_path
 
     def list_sources(self) -> list[SourceRecord]:
-        records = self._planning_sources() + self._uploaded_sources() + [self._geojson_source(), self._derived_source()]
+        records = (
+            self._planning_sources()
+            + self._site_profile_sources()
+            + self._uploaded_sources()
+            + [self._geojson_source(), self._derived_source()]
+        )
         return sorted(records, key=lambda item: item.source_id)
 
     def refresh_snapshot(self) -> list[SourceRecord]:
@@ -88,6 +95,8 @@ class SourceRegistry:
                     source_id=source_id_for_document(source["document_id"]),
                     display_name=source["document_name"],
                     source_type="official_planning_pdf",
+                    source_subtype=source.get("document_type", "planning_pdf").lower(),
+                    modality=modality_for_path(local_path),
                     authority="municipal_official",
                     commune=source.get("commune"),
                     language=source.get("language", "fr"),
@@ -107,6 +116,31 @@ class SourceRegistry:
             )
         return records
 
+    def _site_profile_sources(self) -> list[SourceRecord]:
+        if not DEMO_SITES_PATH.exists():
+            return []
+        records: list[SourceRecord] = []
+        for site in read_json(DEMO_SITES_PATH):
+            records.append(
+                SourceRecord(
+                    source_id=f"src_site_profile_{site['site_id']}",
+                    display_name=f"Demo site profile - {site['display_name']}",
+                    source_type="site_profile",
+                    source_subtype="demo_site_profile",
+                    modality="structured_profile",
+                    authority="demo_data",
+                    commune=site.get("commune"),
+                    language="en",
+                    parser="json",
+                    status="available",
+                    metadata={
+                        "site_id": site["site_id"],
+                        "purpose": "Demo site identity, approximate coordinate, and data-quality context.",
+                    },
+                )
+            )
+        return records
+
     def _uploaded_sources(self) -> list[SourceRecord]:
         records: list[SourceRecord] = []
         if not self.raw_uploads_dir.exists():
@@ -114,12 +148,18 @@ class SourceRegistry:
         for path in sorted(self.raw_uploads_dir.iterdir()):
             if not path.is_file():
                 continue
+            if is_upload_metadata_path(path):
+                continue
             document_id = f"upload_{path.stem}"
+            upload_metadata = read_upload_metadata(path)
+            modality = modality_for_path(path)
             records.append(
                 SourceRecord(
                     source_id=source_id_for_document(document_id),
                     display_name=path.name,
-                    source_type="uploaded_document",
+                    source_type="uploaded_image" if modality == "image" else "uploaded_document",
+                    source_subtype=upload_metadata.get("source_subtype") or infer_upload_subtype(path.name),
+                    modality=modality,
                     authority="user_supplied",
                     commune=None,
                     language=None,
@@ -128,7 +168,7 @@ class SourceRegistry:
                     page_count=page_count(path),
                     parser=parser_name_for_path(path),
                     status="available",
-                    metadata={"document_id": document_id},
+                    metadata={"document_id": document_id, **upload_metadata},
                 )
             )
         return records
@@ -139,6 +179,8 @@ class SourceRegistry:
             source_id="src_demo_geospatial_geojson",
             display_name="Demo site coordinate GeoJSON",
             source_type="geojson",
+            source_subtype="demo_coordinate_context",
+            modality="geojson",
             authority="open_geospatial",
             commune=None,
             language="en",
@@ -155,6 +197,8 @@ class SourceRegistry:
             source_id="src_system_derived_missing_information",
             display_name="System-derived missing information evidence",
             source_type="derived",
+            source_subtype="missing_information",
+            modality="derived_text",
             authority="system_derived",
             commune=None,
             language="en",

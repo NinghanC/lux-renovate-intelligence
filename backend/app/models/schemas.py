@@ -10,6 +10,7 @@ Priority = Literal["high", "medium", "low"]
 Confidence = Literal["high", "medium", "low"]
 SourceType = Literal[
     "official_planning_pdf",
+    "site_profile",
     "uploaded_document",
     "uploaded_image",
     "geojson",
@@ -17,6 +18,7 @@ SourceType = Literal[
 ]
 SourceAuthority = Literal[
     "municipal_official",
+    "demo_data",
     "user_supplied",
     "open_geospatial",
     "system_derived",
@@ -25,6 +27,7 @@ SourceAuthority = Literal[
 
 
 class EvidenceType(str, Enum):
+    site_profile = "site_profile"
     geospatial = "geospatial"
     planning_document = "planning_document"
     uploaded_document = "uploaded_document"
@@ -89,6 +92,8 @@ class SourceRecord(BaseModel):
     source_id: str
     display_name: str
     source_type: SourceType
+    source_subtype: str | None = None
+    modality: str | None = None
     authority: SourceAuthority = "unknown"
     commune: str | None = None
     language: str | None = None
@@ -96,6 +101,23 @@ class SourceRecord(BaseModel):
     source_page_url: str | None = None
     local_path: str | None = None
     checksum_sha256: str | None = None
+    page_count: int | None = None
+    parser: str | None = None
+    status: str = "registered"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SourceRecordPublic(BaseModel):
+    source_id: str
+    display_name: str
+    source_type: SourceType
+    source_subtype: str | None = None
+    modality: str | None = None
+    authority: SourceAuthority = "unknown"
+    commune: str | None = None
+    language: str | None = None
+    original_url: str | None = None
+    source_page_url: str | None = None
     page_count: int | None = None
     parser: str | None = None
     status: str = "registered"
@@ -111,6 +133,11 @@ class EvidenceObject(BaseModel):
     evidence_id: str
     evidence_type: EvidenceType
     source_id: str | None = None
+    source_type: SourceType | None = None
+    source_subtype: str | None = None
+    modality: str | None = None
+    authority_level: SourceAuthority | None = None
+    evidence_role: str | None = None
     source_name: str
     source_path: str | None = None
     source_url: str | None = None
@@ -135,6 +162,8 @@ class UploadResponse(BaseModel):
     document_id: str
     source_id: str | None = None
     document_type: str
+    source_subtype: str | None = None
+    modality: str | None = None
     filename: str
     chunks_created: int
     chunks: list[PlanningChunk]
@@ -241,11 +270,13 @@ class DossierGenerateRequest(BaseModel):
     site_id: str
     query: str | None = None
     include_uploaded_documents: bool = True
-    max_evidence: int = 8
+    max_evidence: int = 12
+    force_refresh: bool = False
 
 
 class DossierGenerateResponse(BaseModel):
     dossier: Dossier
+    cache_hit: bool = False
 
 
 class ApiError(BaseModel):

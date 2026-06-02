@@ -40,6 +40,11 @@ export interface EvidenceObject {
   evidence_id: string;
   evidence_type: string;
   source_id: string | null;
+  source_type: string | null;
+  source_subtype: string | null;
+  modality: string | null;
+  authority_level: string | null;
+  evidence_role: string | null;
   source_name: string;
   source_path: string | null;
   source_url: string | null;
