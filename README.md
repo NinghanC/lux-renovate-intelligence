@@ -174,6 +174,14 @@ Open:
 http://localhost:5173
 ```
 
+Or run both services with Docker Compose:
+
+```powershell
+docker compose up
+```
+
+The backend reads local `.env` settings from the mounted project directory. Open `http://localhost:5173` after the frontend starts.
+
 ## API
 
 - `GET /health`
