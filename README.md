@@ -238,4 +238,12 @@ npm run build
 
 ## Three-Month Direction
 
-The next version would add an internal Building Intelligence Layer: historical case retrieval, recurring defect pattern analytics, experience-enhanced inspection checklist generation, photo and measurement evidence ingestion, and human-reviewed report draft assistance. A dedicated evaluation layer is deferred to this roadmap rather than included in the current MVP.
+The next version would add an internal Building Intelligence Layer: historical case retrieval, recurring defect pattern analytics, experience-enhanced inspection checklist generation, photo and measurement evidence ingestion, and human-reviewed report draft assistance.
+
+A key roadmap item is splitting readiness status calculation from LLM narrative generation. Generic RAG is acceptable for summarization, but it is not ideal for readiness statuses because LLM-generated statuses are difficult to audit, reproduce, and regression-test.
+
+The readiness layer should become deterministic. It would compute objective readiness signals from controlled inputs such as building permit availability, PAG/PAP planning documents, parcel number lookup, checked public data-source coverage, and whether conflicting evidence exists. Status values would be produced by versioned rules and evidence checks rather than by the LLM.
+
+The LLM would then sit above that deterministic layer as an explanation interface. It would receive already-computed statuses, evidence objects, and detected gaps, and generate user-facing explanations, risk notes, recommended next steps, and requested supplementary documents. In this design, the LLM explains the decision state but does not decide the readiness state.
+
+This split would make the product easier to audit: deterministic status rules can have golden test cases, cache keys, input signatures, and regression tests, while LLM output can be evaluated separately for clarity, grounding, and usefulness.
