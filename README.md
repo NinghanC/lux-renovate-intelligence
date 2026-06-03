@@ -1,169 +1,325 @@
 # LuxRenovate Intelligence
 
-LuxRenovate Intelligence is a local MVP for the SECO take-home challenge. It generates an evidence-backed renovation readiness dossier for old-building renovation preparation in Luxembourg.
+LuxRenovate Intelligence is a Luxembourg-first MVP for the SECO AI & Data Engineer take-home challenge. It helps prepare an evidence-backed renovation readiness dossier for existing buildings when original records, plans, assessments, and technical documentation may be incomplete or unreliable.
 
-It is not a generic RAG chatbot. The system is site-centric and evidence-first: it retrieves public planning evidence and uploaded sample documents, asks an OpenAI-compatible LLM to produce structured JSON, validates the output, and shows the sources in a React UI.
+The product is not a generic RAG chatbot. It is a site-centric workflow: a user selects a Luxembourg demo site, optionally uploads supporting documents, generates a dossier, and reviews what is known, what is missing, what should be checked on site, and which evidence supports each finding.
 
-## Problem And User
+---
 
-SECO engineers need to prepare for renovation, due diligence, or inspection work when old-building records are incomplete. The MVP helps an engineer understand:
+## Overview
+
+The MVP demonstrates how heterogeneous building-related sources can be converted into a structured engineering preparation dossier:
+
+- public planning PDFs;
+- demo site profiles;
+- lightweight GeoJSON site context;
+- uploaded sample documents;
+- system-derived missing-information evidence.
+
+The backend normalizes these inputs into source-aware evidence records, retrieves relevant evidence through purpose-based multilingual search, sends bounded context to an OpenAI-compatible LLM, validates the generated dossier, and serves the result through a React + FastAPI web application.
+
+---
+
+## Problem and Our User
+
+### Problem
+
+Many renovation or technical due-diligence projects start with incomplete building knowledge. Older buildings may lack usable original drawings, structural documentation, fire-safety dossiers, MEP information, energy documents, hazardous-material assessments, or reliable historical alteration records.
+
+Before a redesign, renovation, acquisition, or inspection, engineers need to understand:
 
 - what public planning context is available;
-- what project information is missing;
-- which uncertainty signals need human review;
-- what should be checked during the site inspection;
-- which evidence supports each finding.
+- which documents or assessments are missing;
+- which findings are supported by evidence;
+- which uncertainties require human review;
+- what should be checked during a site visit.
 
-## What The MVP Does
+### Primary user
 
-- Provides 3 Luxembourg demo sites.
-- Downloads and parses 4 official public planning PDFs from Luxembourg City, Diekirch, and Mamer.
-- Runs document parsing, chunking, embedding retrieval, rerank, and generation when the user clicks Generate.
-- Retrieves evidence with purpose-based multilingual BM25 keyword search, Databricks-compatible embeddings, and optional rerank.
-- Maintains a source registry for planning PDFs, site profiles, uploaded documents, GeoJSON, and system-derived evidence.
-- Adds source-aware evidence records with source ID, source subtype, modality, role, page locator, parser metadata, support categories, and retrieval score.
-- Adds lightweight GeoJSON coordinate context and distance calculations without a full GIS stack.
-- Adds derived missing-information evidence to the evidence panel after dossier generation.
-- Exposes FastAPI endpoints for sites, uploads, retrieval, dossier generation, and saved dossier lookup.
-- Uses Databricks Serving Endpoints for LLM and embedding calls, AWS Bedrock Cohere Rerank 3.5 for rerank, and AWS Textract for scanned-page OCR fallback.
-- Validates schema, evidence references, source registry links, page ranges, taxonomy completeness, source-type support, and forbidden final engineering claims.
-- Shows source type coverage so users can see whether a dossier is supported by official planning PDFs, uploads, site profile, geo context, or derived missing-information evidence.
-- Shows the workflow in a React + TypeScript frontend.
+The primary user is a SECO engineer preparing renovation, technical due diligence, or inspection work for an existing building in Luxembourg.
 
-## Out Of Scope
+The system does not replace the engineer. It prepares a reviewable dossier and explicitly avoids final structural, fire-safety, legal, compliance, or energy-certification decisions.
 
-- No final structural safety decision.
-- No final fire-safety approval.
-- No legal or planning-compliance judgement.
-- No energy certification.
-- No SECO internal data.
-- No customer confidential data.
-- No production authentication, RBAC, audit logging, or enterprise vector database.
+---
 
-## Data Sources
+## Product Introduction: Functional Overview
 
-The local MVP uses small public planning PDFs that are practical to download and parse:
+From the user's perspective, the MVP supports this workflow:
 
-- Ville de Luxembourg PAP Laangfur page: `https://www.vdl.lu/fr/la-ville/engagements-de-la-ville/developpement-urbain/pap/pap-laangfur`
-- Diekirch PAG/PAP page: `https://diekirch.lu/fr/commune-de-diekirch/trouver-un-service/logement-propriete/plan-damenagement-general-pag`
-- Mamer urbanisme page: `https://mamer.lu/urbanisme/`
+1. **Select one of three Luxembourg demo sites.**
+   The app provides three scoped demo sites so the reviewer can run the product without entering private client data.
 
-The docs also reference larger production-grade sources such as data.public.lu PAG datasets, Geoportail API, BD-Adresses, and BD-L-BATI3D. The large PAG ZIP files are not required for the local MVP because some exceed hundreds of MB or more.
+2. **Review site context.**
+   The user can see basic site information, commune, coordinates, and lightweight GeoJSON context.
 
-The MVP also includes `data/sample/geospatial_context.json` and `data/sample/demo_geospatial.geojson` for public-data-style site context. It explicitly marks building footprints as not verified, so the system does not infer cadastral or engineering facts from approximate coordinates.
+3. **Optionally upload sample documents.**
+   The user can upload a sample PDF, TXT, or Markdown file, such as a renovation note, inspection note, or synthetic technical document.
 
-## AI And Guardrails
+4. **Generate a renovation readiness dossier.**
+   The user clicks **Generate**. The backend retrieves evidence, builds context, calls the configured LLM or returns a cached dossier when the inputs are unchanged, validates the output, stores the dossier, and returns it to the UI.
 
-The LLM is a bounded generation layer, not the source of truth. The backend sends site context, retrieved evidence, and a fixed 12-category taxonomy to the model and requires JSON output.
+5. **Review the generated dossier.**
+   The UI displays:
+   - building summary;
+   - readiness matrix;
+   - evidence coverage score;
+   - missing information checklist;
+   - technical risk signals;
+   - site inspection checklist;
+   - source type coverage;
+   - evidence panel;
+   - limitations.
 
-Validation checks:
+6. **Inspect the evidence behind findings.**
+   Each evidence item keeps source metadata such as source type, modality, authority level, page, chunk ID, parser, support categories, and retrieval score where available.
 
-- Pydantic schema validation;
-- all `evidence_refs` must point to real evidence IDs;
-- evidence must reference registered sources;
-- evidence pages must stay inside registered source page ranges;
-- planning claims must be backed by official planning sources;
-- hard engineering categories cannot be marked available using only uploaded or derived evidence;
-- all 12 taxonomy categories must be present;
-- forbidden final claims are rejected;
-- evidence coverage score is calculated by code from readiness-matrix statuses, not by the LLM;
-- missing information checklist items are converted into `derived_missing_information` evidence for UI traceability.
+7. **Open source files.**
+   Public planning source files can be opened through source-based API routes. The UI and API use `source_id` rather than exposing arbitrary filesystem paths.
 
-Without `LLM_API_KEY`, dossier generation returns a clear configuration error. Retrieval, site context, uploads, and the UI still run.
+---
 
-## Setup
+## Data Pipeline and Technical Choices
 
-Install Python dependencies:
+### Pipeline overview
 
-```powershell
+The MVP pipeline has seven stages:
+
+1. **Source registration**
+   Register public planning PDFs, demo site profiles, uploaded documents, GeoJSON context, and derived system evidence.
+
+2. **Document acquisition and parsing**
+   Download or load public planning PDFs, parse text, split pages into chunks, and attach source/page metadata.
+
+3. **Context evidence construction**
+   Convert site profile and lightweight GeoJSON context into evidence records.
+
+4. **Uploaded document processing**
+   Save uploaded files and subtype metadata during upload, then parse and chunk uploaded content during Generate.
+
+5. **Purpose-based evidence retrieval**
+   Retrieve planning and uploaded-document evidence through multilingual BM25, optional embeddings, and optional rerank.
+
+6. **Bounded LLM dossier generation**
+   Send site context, evidence objects, and a fixed readiness taxonomy to an OpenAI-compatible LLM and request structured JSON.
+
+7. **Validation and storage**
+   Validate schema, evidence references, source integrity, page ranges, claim support, taxonomy completeness, and forbidden final engineering claims. Store the validated dossier for later lookup.
+
+### Pipeline workflow
+
+```mermaid
+flowchart TD
+    A[Demo site selection] --> B[SiteResolver]
+    B --> C[Site context]
+    B --> D[GeoJsonService]
+    C --> E[Context evidence builder]
+    D --> E
+
+    F[Public planning PDFs] --> G[PlanningIngestionService]
+    G --> H[Planning chunks]
+
+    I[Uploaded sample document] --> J[document_upload.save_and_chunk_upload]
+    J --> K[Stored upload + subtype metadata]
+
+    H --> L[DocumentRetriever.retrieve_for_purposes]
+    K --> L
+    E --> M[Evidence list]
+    L --> M
+
+    M --> N[DossierGenerator.generate]
+    C --> N
+    O[12-category readiness taxonomy] --> N
+
+    N --> P[LLMProvider.generate_draft]
+    P --> Q[Generated DossierDraft JSON]
+    Q --> R[evidence_validator.validate_dossier]
+    R --> S[coverage_calculator.calculate_coverage]
+    S --> T[Saved dossier]
+    T --> U[React UI: matrix, checklist, evidence, limitations]
+```
+
+### Data sources
+
+The local MVP uses public and sample data that can be reviewed from the repository.
+
+| Source type | Local location | Purpose |
+|---|---|---|
+| Public planning PDFs | `data/raw/planning/` | Public planning and regulatory evidence for selected Luxembourg communes |
+| Demo site profiles | `data/sample/demo_sites.json` | Structured site metadata for the three demo sites |
+| GeoJSON context | `data/sample/demo_geospatial.geojson` | Lightweight site-context geometry and distance calculation |
+| Geospatial context JSON | `data/sample/geospatial_context.json` | Human-readable public-data-style site context and limitations |
+| Uploaded sample documents | `data/sample/upload_examples/` or UI upload | Simulated client-provided renovation or technical documents |
+| Derived missing-information evidence | generated during dossier build | Represents missing documents or unavailable assessments for UI traceability |
+
+The public planning documents are small enough for local review. Larger production-grade Luxembourg data sources such as national PAG datasets, Geoportail APIs, BD-Adresses, and building/geospatial datasets are referenced as production extensions, not required for the local MVP.
+
+### Pipeline technical details and key code locations
+
+| Pipeline step | Main files | Main classes / methods |
+|---|---|---|
+| Download public planning PDFs | `pipelines/download_planning_documents.py` | `main()`, `download()` |
+| Parse and chunk planning PDFs | `backend/app/services/planning_ingestion.py`, `backend/app/services/document_parser.py` | `PlanningIngestionService.load_generate_chunks()`, `chunk_document()`, `parse_pdf()` |
+| Register sources | `backend/app/services/source_registry.py` | `SourceRegistry.list_sources()`, `refresh_snapshot()`, `_planning_sources()`, `_uploaded_sources()`, `_geojson_source()` |
+| Build site context | `backend/app/services/site_resolver.py`, `backend/app/services/geospatial.py` | `SiteResolver.build_context()`, `GeoJsonService.build_site_geojson()` |
+| Convert site/GeoJSON to evidence | `backend/app/services/context_evidence.py` | `build_site_profile_evidence()`, `build_geospatial_evidence()`, `build_context_evidence()` |
+| Save uploads and classify subtype | `backend/app/services/document_upload.py`, `backend/app/services/evidence_metadata.py` | `save_and_chunk_upload()`, `infer_upload_subtype()`, `normalize_upload_subtype()` |
+| Retrieve evidence | `backend/app/services/document_retriever.py` | `DocumentRetriever.retrieve_for_purposes()`, `retrieve_from_chunks()` |
+| Expand multilingual query terms | `backend/app/services/multilingual_terms.py` | `expand_query_tokens()`, `infer_support_categories()` |
+| Optional embeddings | `backend/app/services/embedding_provider.py` | `EmbeddingProvider.embed_texts()`, `cosine_similarity()` |
+| Optional rerank | `backend/app/services/rerank_provider.py` | `RerankProvider.rerank()` |
+| Optional OCR fallback | `backend/app/services/ocr_provider.py` | `OCRProvider.extract_text_from_png()`, `_textract_plain_text()` |
+| Generate dossier | `backend/app/services/dossier_generator.py`, `backend/app/services/llm_provider.py` | `DossierGenerator.generate()`, `build_user_prompt()`, `LLMProvider.generate_draft()` |
+| Validate dossier | `backend/app/services/evidence_validator.py` | `validate_dossier()`, `validate_evidence_refs()`, `validate_claim_support()`, `validate_forbidden_claims()` |
+| Calculate evidence coverage | `backend/app/services/coverage_calculator.py` | `calculate_coverage()` |
+| Store and retrieve dossiers | `backend/app/services/dossier_store.py` | `save_dossier()`, `load_dossier()`, `load_cached_dossier()` |
+
+### Validation checks
+
+The MVP includes validation because this is a technical-control workflow, not an open-ended chatbot.
+
+The backend validates:
+
+- Pydantic schema correctness;
+- all referenced evidence IDs exist;
+- planning findings, risk signals, and inspection checklist items cite evidence;
+- evidence sources exist in the source registry;
+- PDF page references stay within registered source page ranges;
+- planning claims are backed by official planning-document sources;
+- available or partial matrix items must reference evidence;
+- hard engineering categories cannot be marked available from unsuitable evidence types;
+- all 12 readiness taxonomy categories are present;
+- forbidden final claims such as 'safe', 'approved', 'compliant', or 'structurally sound' are rejected.
+
+Important limitation: the validator reduces unsupported claims, but it does not prove factual correctness. Final engineering judgement remains with the human engineer.
+
+### Technical decisions
+
+- **FastAPI + Pydantic** keep the backend typed and easy to validate.
+- **React + TypeScript** provides a minimal client-facing product workspace.
+- **Local JSON/JSONL** keeps the MVP reproducible and easy to inspect.
+- **PyMuPDF** is sufficient for text-based public PDFs.
+- **Multilingual BM25** is the default retrieval method because it works without external services and supports mixed English/French/German/Dutch terminology.
+- **Embeddings, rerank, and OCR are optional integrations.** They are abstracted behind providers so the MVP can run locally while the production architecture can use Databricks and AWS.
+- **SourceRegistry + EvidenceObject** make citations and evidence traceability explicit before moving to production databases.
+- **GeoJSON support is intentionally lightweight.** It provides coordinate and distance context, not cadastral, structural, or engineering-grade inference.
+- **The evidence coverage score is not a risk, safety, compliance, or renovation-feasibility score.** It only summarizes evidence availability.
+
+### Current MVP limitation: readiness-matrix rules
+
+The current MVP uses the LLM to generate the readiness matrix, then constrains that output with schema validation, evidence-reference validation, source-type checks, taxonomy completeness checks, and forbidden-claim validation. This is acceptable for the take-home MVP because the focus is to demonstrate the end-to-end product workflow.
+
+A future production version should move the readiness-matrix status assignment into a dedicated rule engine before LLM generation. In that design, deterministic evidence-availability rules would first decide whether each category is `available`, `partial`, `missing`, `unknown`, or `not_applicable`. The LLM would then only generate the human-readable summary, rationale, recommended next action, and inspection checklist from that rule-based matrix and the evidence package.
+
+Example future rule-engine responsibility:
+
+```text
+evidence objects
+-> deterministic readiness-matrix status assignment
+-> derived missing-information evidence
+-> bounded LLM summary/checklist generation
+-> validation and audit output
+```
+
+This rule-engine layer is intentionally listed as future work rather than implemented in the current MVP.
+
+---
+
+## AI Highlights
+
+The AI layer is deliberately bounded.
+
+The LLM receives:
+
+- selected site context;
+- retrieved evidence objects;
+- source metadata;
+- a fixed 12-category readiness taxonomy;
+- instructions to return structured JSON only.
+
+The main AI-related implementation points are:
+
+| Capability | File / method |
+|---|---|
+| LLM request construction | `backend/app/services/dossier_generator.py::build_user_prompt()` |
+| Structured LLM call | `backend/app/services/llm_provider.py::LLMProvider.generate_draft()` |
+| JSON extraction and schema validation | `backend/app/services/llm_provider.py::extract_json_object()`, Pydantic models in `backend/app/models/schemas.py` |
+| Dossier orchestration | `backend/app/services/dossier_generator.py::DossierGenerator.generate()` |
+| Evidence validation | `backend/app/services/evidence_validator.py::validate_dossier()` |
+| Forbidden final-claim guardrail | `backend/app/services/evidence_validator.py::validate_forbidden_claims()` |
+
+The LLM is not treated as the source of truth. It transforms retrieved evidence into a structured, reviewable dossier. The system still requires human validation for engineering, structural, fire-safety, legal, and compliance questions.
+
+A dedicated evaluation layer is not part of the current MVP implementation. It is planned as a future layer to measure retrieval quality, generation stability, validation failures, regression risk, and user-facing usefulness across repeated dossier generations.
+
+---
+
+## Run Locally
+
+### 1. Setup
+
+Install Python dependencies from the repository root:
+
+```bash
 python -m pip install -r requirements.txt
 ```
 
 Install frontend dependencies:
 
-```powershell
+```bash
 cd frontend
 npm install
+cd ..
 ```
 
-Create local environment variables:
+Create a local `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Then edit `.env` with your local Databricks token and AWS credentials. Defaults use Databricks + AWS:
+Edit `.env` if you want to run real dossier generation with an external LLM endpoint.
 
-- `LLM_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints`
-- `LLM_MODEL=databricks-meta-llama-3-3-70b-instruct`
-- `EMBEDDING_MODEL=your-databricks-embedding-endpoint`
-- `RERANK_MODEL=cohere.rerank-v3-5:0`
-- `OCR_MODEL=aws-textract-detect-document-text`
+Current generation requires an OpenAI-compatible LLM configuration. Without `LLM_API_KEY`, the app still starts and supports site viewing, source listing, uploads, retrieval, and UI navigation, but `POST /api/dossiers/generate` returns a clear `llm_not_configured` error.
 
-Embedding, rerank, and OCR settings are optional for startup. OCR is used only as a PDF fallback when normal text extraction returns too little text, which keeps ordinary text PDFs cheap to parse while supporting scanned sample documents.
-
-Databricks Serving Endpoint example:
+Recommended production-style variables are placeholders, not committed credentials:
 
 ```env
 LLM_PROVIDER=databricks
-LLM_API_KEY=
-LLM_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints
-LLM_MODEL=databricks-meta-llama-3-3-70b-instruct
-EMBEDDING_API_KEY=
-EMBEDDING_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints
-EMBEDDING_MODEL=your-databricks-embedding-endpoint
-```
+LLM_API_KEY=<your-token>
+LLM_BASE_URL=https://<your-databricks-workspace-url>/serving-endpoints
+LLM_MODEL=<your-chat-serving-endpoint-name>
 
-Do not commit real API tokens.
-`EMBEDDING_API_KEY` can be left empty when embeddings use the same Databricks endpoint root as `LLM_BASE_URL`; the backend reuses `LLM_API_KEY` in that case.
+EMBEDDING_BASE_URL=https://<your-databricks-workspace-url>/serving-endpoints
+EMBEDDING_MODEL=<your-embedding-serving-endpoint-name>
 
-AWS rerank and OCR example:
-
-```env
 RERANK_PROVIDER=aws_bedrock
 RERANK_MODEL=cohere.rerank-v3-5:0
 RERANK_AWS_REGION=us-east-1
+
 OCR_PROVIDER=aws_textract
 OCR_MODEL=aws-textract-detect-document-text
 OCR_AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_SESSION_TOKEN=
 ```
 
-## Data Pipeline
+Embedding, rerank, and OCR are optional. The default local retrieval path uses multilingual BM25.
 
-Download the planning PDFs:
+### 2. Launch the app
 
-```powershell
-python -X utf8 pipelines\download_planning_documents.py
-```
+Start the backend:
 
-This creates:
-
-- `data/raw/planning/*.pdf`
-
-Generate uses a source-hash checked planning chunk cache when available. If the cache is missing or stale, the backend parses and chunks the raw planning PDFs and writes a fresh local cache.
-
-The optional ingestion script can still generate `data/processed/planning_chunks.jsonl` as an audit/debug artifact:
-
-```powershell
-python -X utf8 pipelines\ingest_planning_documents.py
-```
-
-Synthetic upload examples are available in `data/sample/upload_examples/` for testing the local upload flow without real client data. Upload one of those files from the UI, then click Generate and inspect the uploaded-document evidence.
-
-## Run Locally
-
-Start backend:
-
-```powershell
+```bash
 uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
 
-Start frontend:
+Start the frontend in another terminal:
 
-```powershell
+```bash
 cd frontend
 npm run dev
 ```
@@ -174,76 +330,191 @@ Open:
 http://localhost:5173
 ```
 
-Or run both services with Docker Compose:
+You can also run both services with Docker Compose:
 
-```powershell
+```bash
 docker compose up
 ```
 
-The backend reads local `.env` settings from the mounted project directory. Open `http://localhost:5173` after the frontend starts.
+### 3. Use the UI
 
-## API
+In the browser:
 
-- `GET /health`
-- `GET /api/sites`
-- `GET /api/sites/{site_id}/context`
-- `GET /api/sites/{site_id}/geojson`
-- `POST /api/documents/upload`
-- `GET /api/evidence?site_id=...&query=...`
-- `GET /api/sources`
-- `GET /api/sources/{source_id}/file`
-- `POST /api/dossiers/generate`
-- `GET /api/dossiers/{dossier_id}`
+1. Open `http://localhost:5173`.
+2. Select one of the three Luxembourg demo sites.
+3. Review the site context and lightweight map context.
+4. Optional: upload a sample file from `data/sample/upload_examples/`.
+5. Click **Generate**.
+6. Review the readiness matrix, coverage score, missing information, risk signals, inspection checklist, evidence panel, and limitations.
+7. Open source files from the evidence/source area where available.
 
-## Tests
+If no LLM credentials are configured, step 5 returns a configuration error. The rest of the app remains usable for reviewing the data pipeline, source registry, site context, uploads, and retrieval flow.
 
-```powershell
+### 4. Refresh public planning PDFs
+
+The repository includes local public planning PDFs. To refresh them:
+
+```bash
+python -X utf8 pipelines/download_planning_documents.py
+```
+
+To generate planning chunks as an audit/debug artifact:
+
+```bash
+python -X utf8 pipelines/ingest_planning_documents.py
+```
+
+The Generate endpoint uses a source-hash checked chunk cache when available. If the cache is missing or stale, it parses and chunks the raw planning PDFs again.
+
+### 5. API
+
+Backend health and docs:
+
+```text
+GET http://localhost:8000/health
+GET http://localhost:8000/docs
+```
+
+Main API routes:
+
+```text
+GET  /api/sites
+GET  /api/sites/{site_id}/context
+GET  /api/sites/{site_id}/geojson
+POST /api/documents/upload
+GET  /api/evidence?site_id=...&query=...
+GET  /api/sources
+GET  /api/sources/{source_id}/file
+POST /api/dossiers/generate
+GET  /api/dossiers/{dossier_id}
+```
+
+### 6. Tests
+
+Run backend tests:
+
+```bash
 pytest
+```
+
+Build frontend:
+
+```bash
 cd frontend
 npm run build
 ```
 
-## Technical Decisions
+---
 
-- FastAPI and Pydantic keep the API typed and easy to validate.
-- Local JSON/JSONL keeps the MVP reproducible and reviewable.
-- PyMuPDF is enough for public PDF text extraction.
-- AWS Textract is used as a scanned-PDF fallback, not as the default parser for every document.
-- Multilingual BM25 keyword retrieval is the default because it works without external services and handles mixed French, German, Dutch, and English terminology better than plain English keyword matching.
-- Embedding retrieval is abstracted behind `EmbeddingProvider`.
-- Rerank is handled through `RerankProvider`. The local recommended setup uses AWS Bedrock Cohere Rerank 3.5 after multilingual BM25 + Databricks embedding retrieval.
-- Source registry and source-aware evidence schema make citations auditable before moving to database-backed infrastructure. Public source APIs use `source_id`, not local filesystem paths.
-- GeoJSON distance context is intentionally lightweight: coordinates and Haversine distance only, not cadastral or engineering inference.
-- The Generate endpoint runs the full retrieval/generation/validation flow on demand while reusing validated planning chunk caches when source files are unchanged.
-- The evidence coverage score is not a regulatory, risk, safety, or compliance score.
-- The UI is a product workspace, not a landing page.
+## Out of Scope for the MVP
 
-## What Would Be Kept In Production
+The MVP does not provide:
 
-- Site-centric workflow.
-- Evidence object model.
-- Fixed readiness taxonomy.
-- Bounded AI generation.
-- Evidence and forbidden-claim validators.
-- Human-in-the-loop positioning.
+- final structural safety decisions;
+- fire-safety approval;
+- legal or planning-compliance judgement;
+- energy certification;
+- cadastral or ownership verification;
+- full as-built reconstruction;
+- SECO internal data integration;
+- customer confidential data processing;
+- production authentication, RBAC, audit logs, or enterprise monitoring.
 
-## What Would Be Rebuilt In Production
+---
 
-- Replace local JSON with PostgreSQL/PostGIS and object storage.
-- Replace local upload storage with governed document storage.
-- Add RBAC, audit logs, prompt/evidence logging, and data retention.
-- Use production OCR for scanned drawings and reports.
-- Add a managed vector index and a dedicated evaluation layer for retrieval quality, generation regression checks, and golden dossier comparisons.
-- Integrate SECO historical inspection reports, defect observations, photos, measurements, and project metadata.
+## What Would Be Kept in Production
+
+The following parts are production-relevant:
+
+- site-centric product workflow;
+- source registry;
+- source-aware evidence object model;
+- fixed readiness taxonomy;
+- bounded structured AI generation;
+- evidence-reference validation;
+- forbidden final-claim validation;
+- source type coverage;
+- human-in-the-loop positioning.
+
+---
+
+## What Would Be Rebuilt in Production
+
+The following MVP components should be rebuilt or replaced in a production version:
+
+- replace local JSON/JSONL with PostgreSQL/PostGIS, Delta tables, or another governed data store;
+- replace local uploads with governed document storage;
+- replace local source files with object storage such as AWS S3;
+- add RBAC, document-level permissions, audit logging, prompt logging, and data-retention policies;
+- use production OCR for scanned drawings, reports, and image-heavy PDFs;
+- use managed vector search and monitored retrieval pipelines;
+- add a dedicated rule engine for readiness-matrix status assignment before LLM generation;
+- add a dedicated evaluation layer for retrieval quality, generation quality, validation quality, UX usefulness, and regression testing;
+- integrate SECO historical inspection reports, defect observations, photos, measurements, drawings, and project metadata.
+
+---
 
 ## Three-Month Direction
 
-The next version would add an internal Building Intelligence Layer: historical case retrieval, recurring defect pattern analytics, experience-enhanced inspection checklist generation, photo and measurement evidence ingestion, and human-reviewed report draft assistance.
+### Month 1: Improve the MVP and collect user feedback
 
-A key roadmap item is splitting readiness status calculation from LLM narrative generation. Generic RAG is acceptable for summarization, but it is not ideal for readiness statuses because LLM-generated statuses are difficult to audit, reproduce, and regression-test.
+- Improve the UI/UX based on engineer feedback.
+- Observe whether users understand the readiness matrix, source type coverage, evidence panel, and limitations.
+- Collect feedback on which dossier sections are useful and which are missing.
+- Improve document upload experience and source-file inspection.
+- Strengthen existing features before adding many new ones.
 
-The readiness layer should become deterministic. It would compute objective readiness signals from controlled inputs such as building permit availability, PAG/PAP planning documents, parcel number lookup, checked public data-source coverage, and whether conflicting evidence exists. Status values would be produced by versioned rules and evidence checks rather than by the LLM.
+### Month 2: Strengthen accuracy, stability, rule logic, and evaluation
 
-The LLM would then sit above that deterministic layer as an explanation interface. It would receive already-computed statuses, evidence objects, and detected gaps, and generate user-facing explanations, risk notes, recommended next steps, and requested supplementary documents. In this design, the LLM explains the decision state but does not decide the readiness state.
+- Build a small evaluation set with representative demo dossiers.
+- Add a dedicated evaluation layer for retrieval quality, generation quality, validation behavior, and end-to-end dossier consistency.
+- Add retrieval evaluation: correct source, correct commune, correct page, correct evidence role.
+- Add generation evaluation: required evidence references, no forbidden claims, stable limitations, checklist relevance.
+- Add rule-engine evaluation: whether each readiness-matrix status is consistent with the available evidence and missing-information rules.
+- Add a first version of the rule-based readiness-matrix engine, so evidence availability determines the matrix status before LLM generation.
+- Add regression tests for prompts, validators, source-type handling, rule-engine outputs, and sample dossier outputs.
+- Add better monitoring around failed parsing, failed generation, missing evidence, validation errors, and rule-engine conflicts.
+- Expand document subtype classification and matrix consistency checks.
 
-This split would make the product easier to audit: deterministic status rules can have golden test cases, cache keys, input signatures, and regression tests, while LLM output can be evaluated separately for clarity, grounding, and usefulness.
+### Month 3: Plan production scale and internal data integration
+
+- Estimate expected user volume, document volume, and dossier generation frequency.
+- Decide whether local processing remains sufficient or whether distributed processing is needed.
+- Evaluate production storage and processing options such as Databricks Delta tables, PostgreSQL/PostGIS, object storage, and scheduled jobs.
+- Plan deployment resources for backend, frontend, document processing, OCR, retrieval, and LLM serving.
+- Design the first SECO internal-data integration: historical inspection reports, defect observations, photos, measurements, and project metadata.
+- Prototype similar-case retrieval and experience-enhanced inspection checklist generation from governed internal data.
+
+---
+
+## Production Architecture Direction
+
+The local MVP is intentionally lightweight. A production version would likely use:
+
+- **Databricks** for Bronze/Silver/Gold data layers, batch processing, model serving, vector search, and governance;
+- **AWS S3** or equivalent object storage for raw documents and generated artifacts;
+- **AWS Textract** or another production OCR service for scanned files;
+- **PostgreSQL/PostGIS** for structured site, geometry, dossier, and evidence metadata;
+- **RBAC and audit logs** for controlled access to customer and SECO internal data;
+- **rule-engine services** for deterministic readiness-matrix status assignment and missing-information logic;
+- **evaluation pipelines** for retrieval, generation, validation, rule-engine behavior, and end-to-end regression checks.
+
+A possible mapping:
+
+| Layer | Production content |
+|---|---|
+| Bronze | raw PDFs, uploaded files, GeoJSON, historical reports, photos, measurements |
+| Silver | parsed chunks, evidence objects, source registry, site context, defect observations |
+| Gold | readiness dossiers, coverage scores, checklists, validation results, analytics |
+
+---
+
+## Repository Structure
+
+```text
+backend/      FastAPI backend, services, schemas, validators, tests
+frontend/     React + TypeScript UI
+pipelines/    download, ingestion, and index-building scripts
+data/         raw, processed, sample, uploaded, and stored dossier data
+docs/         architecture, trade-offs, evaluation, and roadmap notes
+```
