@@ -88,7 +88,7 @@ The MVP pipeline has seven stages:
    Register public planning PDFs, demo site profiles, uploaded documents, GeoJSON context, and derived system evidence.
 
 2. **Document acquisition and parsing**
-   Download or load public planning PDFs, parse text, split pages into chunks, and attach source/page metadata.
+   Download or load public planning PDFs, coordinate file type and source metadata, parse text, split pages into chunks, and attach source/page metadata.
 
 3. **Context evidence construction**
    Convert site profile and lightweight GeoJSON context into evidence records.
@@ -109,33 +109,45 @@ The MVP pipeline has seven stages:
 
 ```mermaid
 flowchart TD
-    A[Demo site selection] --> B[SiteResolver]
-    B --> C[Site context]
-    B --> D[GeoJsonService]
-    C --> E[Context evidence builder]
-    D --> E
+    subgraph DS[Data sources and formats]
+        A1[Public planning PDFs\nPDF + municipal metadata]
+        A2[Demo site profiles\nJSON site records]
+        A3[GeoJSON context\nFeatureCollection points]
+        A4[Uploaded sample docs\nPDF / TXT / Markdown]
+        A5[System-derived missing info\nGenerated from validated draft]
+    end
 
-    F[Public planning PDFs] --> G[PlanningIngestionService]
-    G --> H[Planning chunks]
+    A1 --> B1[PlanningIngestionService\nparse PDF, OCR fallback, chunk by page]
+    A2 --> B2[SiteResolver\nvalidate site JSON, build SiteContext]
+    A3 --> B3[GeoJsonService\nfilter features, calculate distance]
+    A4 --> B4[document_upload.save_and_chunk_upload\nstore raw file + subtype metadata]
+    B4 --> B5[PlanningIngestionService.load_uploaded_chunks\nparse upload during Generate]
 
-    I[Uploaded sample document] --> J[document_upload.save_and_chunk_upload]
-    J --> K[Stored upload + subtype metadata]
+    B1 --> C1[Planning chunks]
+    B5 --> C2[Uploaded chunks]
+    B2 --> C3[Site context]
+    B3 --> C4[GeoJSON context]
 
-    H --> L[DocumentRetriever.retrieve_for_purposes]
-    K --> L
-    E --> M[Evidence list]
+    C3 --> D1[Context evidence builder]
+    C4 --> D1
+    C1 --> D2[DocumentRetriever.retrieve_for_purposes]
+    C2 --> D2
+
+    D1 --> E[Normalized evidence list]
+    D2 --> E
+    E --> F[DossierGenerator.generate]
+    C3 --> F
+    G[12-category readiness taxonomy] --> F
+
+    F --> H[LLMProvider.generate_draft]
+    H --> I[Generated DossierDraft JSON]
+    I --> J[evidence_validator.validate_dossier]
+    J --> K[coverage_calculator.calculate_coverage]
+    J --> A5
+    A5 --> L[Final evidence panel]
+    K --> M[Saved dossier]
     L --> M
-
-    M --> N[DossierGenerator.generate]
-    C --> N
-    O[12-category readiness taxonomy] --> N
-
-    N --> P[LLMProvider.generate_draft]
-    P --> Q[Generated DossierDraft JSON]
-    Q --> R[evidence_validator.validate_dossier]
-    R --> S[coverage_calculator.calculate_coverage]
-    S --> T[Saved dossier]
-    T --> U[React UI: matrix, checklist, evidence, limitations]
+    M --> N[React UI: matrix, checklist, evidence, limitations]
 ```
 
 ### Data sources
@@ -152,6 +164,20 @@ The local MVP uses public and sample data that can be reviewed from the reposito
 | Derived missing-information evidence | generated during dossier build | Represents missing documents or unavailable assessments for UI traceability |
 
 The public planning documents are small enough for local review. Larger production-grade Luxembourg data sources such as national PAG datasets, Geoportail APIs, BD-Adresses, and building/geospatial datasets are referenced as production extensions, not required for the local MVP.
+
+### Data ingestion coordination
+
+The ingestion layer deliberately keeps raw source formats separate, then normalizes them into a shared evidence model before retrieval and generation. The coordination point is the source registry plus `EvidenceObject`, not a single raw file format.
+
+| Source family | Input format | Ingestion coordination | Normalized output |
+|---|---|---|---|
+| Public planning documents | PDF files plus `planning_sources.json` metadata | Register `source_id`, commune, authority, URL, checksum, page count, parser, and document type; parse text with PyMuPDF and OCR fallback when needed; chunk by page with stable chunk IDs. | `PlanningChunk` records and `official_planning_pdf` evidence |
+| Demo site profile | `data/sample/demo_sites.json` and `geospatial_context.json` | Validate structured JSON into `SiteContext`; keep address and coordinates marked as demo/approximate; carry data-quality limitations forward. | `site_profile` evidence and site context |
+| Lightweight geospatial context | GeoJSON FeatureCollection | Filter point features by site/radius, calculate Haversine distance, attach `src_demo_geospatial_geojson`, and avoid cadastral or engineering inference. | `geojson` source records and `geospatial` evidence |
+| Uploaded sample documents | UI upload as PDF, TXT, MD, or Markdown | Store raw file under `data/raw/uploads/`, write sidecar subtype metadata, classify or accept user-selected subtype, then parse and chunk during Generate. | `uploaded_document` evidence with subtype, modality, parser, page, and chunk metadata |
+| Derived missing-information records | Generated from `missing_information_checklist` after draft validation | Convert missing checklist items into system-derived evidence for UI traceability; preserve links back to supporting original evidence where available. | `derived_missing_information` evidence |
+
+After coordination, retrieved and generated evidence share common fields such as `evidence_id`, `source_id`, `source_type`, `source_subtype`, `modality`, `authority_level`, `evidence_role`, `page`, `chunk_id`, `parser`, `supports`, and `metadata`. This lets the UI and validators handle heterogeneous data sources through one citation model.
 
 ### Pipeline technical details and key code locations
 
