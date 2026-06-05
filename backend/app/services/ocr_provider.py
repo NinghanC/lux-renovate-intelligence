@@ -10,8 +10,8 @@ from app.core.config import aws_credentials_available, settings
 class OCRProvider:
     """OCR fallback for scanned PDF pages.
 
-    AWS Textract is the default OCR provider. A Databricks vision endpoint can
-    be used as a secondary option when OCR_PROVIDER=databricks_vision.
+    OCR is disabled by default for the public demo. Provider-specific adapters
+    can be enabled through local environment variables when needed.
     """
 
     def __init__(

@@ -5,7 +5,7 @@ from app.models.schemas import PlanningChunk
 
 
 class RerankProvider:
-    """Optional AWS Bedrock rerank adapter using Cohere Rerank 3.5."""
+    """Optional managed rerank adapter. Disabled by default for the public demo."""
 
     def __init__(
         self,
@@ -34,7 +34,7 @@ class RerankProvider:
         try:
             import boto3
         except ImportError as exc:
-            raise RuntimeError("AWS Bedrock rerank requires boto3. Install project requirements.") from exc
+            raise RuntimeError("Configured rerank provider requires boto3. Install project requirements.") from exc
 
         client = boto3.client("bedrock-agent-runtime", region_name=self.aws_region)
         response = client.rerank(

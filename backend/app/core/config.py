@@ -21,20 +21,18 @@ def _llm_base_url() -> str:
     configured = os.getenv("LLM_BASE_URL")
     if configured:
         return configured
-    if _llm_provider() == "databricks":
-        return "https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints"
     return ""
 
 
 def _rerank_provider() -> str:
-    return os.getenv("RERANK_PROVIDER", "aws_bedrock")
+    return os.getenv("RERANK_PROVIDER", "disabled")
 
 
 def _rerank_model() -> str:
     configured = os.getenv("RERANK_MODEL")
     if configured:
         return configured
-    return "cohere.rerank-v3-5:0"
+    return ""
 
 
 def _embedding_base_url() -> str:
@@ -54,7 +52,7 @@ def _embedding_api_key() -> str | None:
 
 
 def _ocr_provider() -> str:
-    return os.getenv("OCR_PROVIDER", "aws_textract")
+    return os.getenv("OCR_PROVIDER", "disabled")
 
 
 def _ocr_model() -> str:
@@ -62,8 +60,8 @@ def _ocr_model() -> str:
     if configured:
         return configured
     if _ocr_provider() == "databricks_vision":
-        return "databricks-llama-4-maverick"
-    return "aws-textract-detect-document-text"
+        return os.getenv("DATABRICKS_VISION_MODEL", "")
+    return ""
 
 
 def _ocr_base_url() -> str | None:
@@ -107,17 +105,17 @@ class Settings:
     llm_mock_mode: bool = _env_flag("LLM_MOCK_MODE")
     llm_api_key: str | None = os.getenv("LLM_API_KEY")
     llm_base_url: str | None = _llm_base_url()
-    llm_model: str | None = os.getenv("LLM_MODEL", "databricks-meta-llama-3-3-70b-instruct")
+    llm_model: str | None = os.getenv("LLM_MODEL") or None
     llm_response_format: str | None = os.getenv("LLM_RESPONSE_FORMAT") or None
     llm_timeout_seconds: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "180"))
     embedding_api_key: str | None = _embedding_api_key()
     embedding_base_url: str | None = _embedding_base_url()
-    embedding_model: str | None = os.getenv("EMBEDDING_MODEL", "your-databricks-embedding-endpoint")
+    embedding_model: str | None = os.getenv("EMBEDDING_MODEL") or None
     embedding_batch_size: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "10"))
     rerank_provider: str = _rerank_provider()
     rerank_model: str = _rerank_model()
     rerank_top_n: int = int(os.getenv("RERANK_TOP_N", "8"))
-    rerank_aws_region: str = os.getenv("RERANK_AWS_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+    rerank_aws_region: str = os.getenv("RERANK_AWS_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION", "")
     aws_access_key_id: str | None = os.getenv("AWS_ACCESS_KEY_ID")
     aws_secret_access_key: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
     aws_session_token: str | None = os.getenv("AWS_SESSION_TOKEN")
@@ -125,7 +123,7 @@ class Settings:
     ocr_api_key: str | None = _ocr_api_key()
     ocr_base_url: str | None = _ocr_base_url()
     ocr_model: str | None = _ocr_model()
-    ocr_aws_region: str = os.getenv("OCR_AWS_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+    ocr_aws_region: str = os.getenv("OCR_AWS_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION", "")
     ocr_timeout_seconds: int = int(os.getenv("OCR_TIMEOUT_SECONDS", "120"))
     ocr_min_text_chars: int = int(os.getenv("OCR_MIN_TEXT_CHARS", "80"))
     ocr_render_dpi: int = int(os.getenv("OCR_RENDER_DPI", "144"))

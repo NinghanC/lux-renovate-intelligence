@@ -6,6 +6,8 @@ __pycache__/
 .pytest_cache/
 pytest-cache-files-*/
 .tmp/
+test-tmp/
+manual-test-output/
 .mypy_cache/
 logs/
 
@@ -23,7 +25,6 @@ data/processed/planning_cache/
 data/processed/planning_chunks.jsonl
 data/processed/planning_embeddings.jsonl
 
-需求/
 
 .DS_Store
 Thumbs.db

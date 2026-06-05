@@ -15,14 +15,14 @@ def test_textract_plain_text_keeps_line_order():
 
 def test_aws_textract_provider_requires_resolved_credentials(monkeypatch):
     monkeypatch.setattr("app.services.ocr_provider.aws_credentials_available", lambda: True)
-    provider = OCRProvider(provider="aws_textract", aws_region="us-east-1")
+    provider = OCRProvider(provider="aws_textract", aws_region="test-region-1")
 
     assert provider.configured
 
 
 def test_aws_textract_provider_is_not_configured_without_credentials(monkeypatch):
     monkeypatch.setattr("app.services.ocr_provider.aws_credentials_available", lambda: False)
-    provider = OCRProvider(provider="aws_textract", aws_region="us-east-1")
+    provider = OCRProvider(provider="aws_textract", aws_region="test-region-1")
 
     assert not provider.configured
 
@@ -31,8 +31,8 @@ def test_databricks_vision_provider_requires_model_endpoint_and_key():
     provider = OCRProvider(
         provider="databricks_vision",
         api_key="token",
-        base_url="https://example.databricks.com/serving-endpoints",
-        model="databricks-llama-4-maverick",
+        base_url="https://example.invalid/openai-compatible",
+        model="example-vision-model",
     )
 
     assert provider.configured

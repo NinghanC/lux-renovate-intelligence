@@ -225,7 +225,7 @@ Important limitation: the validator reduces unsupported claims, but it does not 
 - **Local JSON/JSONL** keeps the MVP reproducible and easy to inspect.
 - **PyMuPDF** is sufficient for text-based public PDFs.
 - **Multilingual BM25** is the default retrieval method because it works without external services and supports mixed English/French/German/Dutch terminology.
-- **Embeddings, rerank, and OCR are optional integrations.** They are abstracted behind providers so the MVP can run locally while the production architecture can use Databricks and AWS.
+- **Embeddings, rerank, and OCR are optional integrations.** They are abstracted behind providers so the MVP can run locally while production deployments can use managed cloud services.
 - **SourceRegistry + EvidenceObject** make citations and evidence traceability explicit before moving to production databases.
 - **GeoJSON support is intentionally lightweight.** It provides coordinate and distance context, not cadastral, structural, or engineering-grade inference.
 - **The evidence coverage score is not a risk, safety, compliance, or renovation-feasibility score.** It only summarizes evidence availability.
@@ -337,27 +337,27 @@ Copy-Item .env.example .env
 
 By default, the backend uses deterministic mock generation even without a local `.env`, and `.env.example` keeps that same default. Reviewers can click **Generate** without any external API key. The mock path still runs retrieval, evidence normalization, validation, storage, and the UI review flow, but it does not call an LLM and its narrative is intentionally demo-grade.
 
-Edit `.env` if you want to run real dossier generation with an external LLM endpoint. To use Databricks or another OpenAI-compatible endpoint, set `LLM_PROVIDER=databricks`, set `LLM_MOCK_MODE=false`, and provide the LLM variables below.
+Edit `.env` if you want to run real dossier generation with an external OpenAI-compatible LLM endpoint. Set `LLM_PROVIDER` to your provider label, set `LLM_MOCK_MODE=false`, and provide provider-specific values locally.
 
 Recommended production-style variables are placeholders, not committed credentials:
 
 ```env
-LLM_PROVIDER=databricks
+LLM_PROVIDER=<your-openai-compatible-provider>
 LLM_MOCK_MODE=false
 LLM_API_KEY=<your-token>
-LLM_BASE_URL=https://<your-databricks-workspace-url>/serving-endpoints
-LLM_MODEL=<your-chat-serving-endpoint-name>
+LLM_BASE_URL=https://<your-provider-host>/<openai-compatible-path>
+LLM_MODEL=<your-chat-model-or-serving-endpoint-name>
 
-EMBEDDING_BASE_URL=https://<your-databricks-workspace-url>/serving-endpoints
-EMBEDDING_MODEL=<your-embedding-serving-endpoint-name>
+EMBEDDING_BASE_URL=https://<your-provider-host>/<embedding-path>
+EMBEDDING_MODEL=<your-embedding-model-or-serving-endpoint-name>
 
-RERANK_PROVIDER=aws_bedrock
-RERANK_MODEL=cohere.rerank-v3-5:0
-RERANK_AWS_REGION=us-east-1
+RERANK_PROVIDER=<your-rerank-provider-or-disabled>
+RERANK_MODEL=<your-rerank-model-id-or-arn>
+RERANK_AWS_REGION=<your-region-if-applicable>
 
-OCR_PROVIDER=aws_textract
-OCR_MODEL=aws-textract-detect-document-text
-OCR_AWS_REGION=us-east-1
+OCR_PROVIDER=<your-ocr-provider-or-disabled>
+OCR_MODEL=<your-ocr-model-or-provider-label>
+OCR_AWS_REGION=<your-region-if-applicable>
 ```
 
 Embedding, rerank, and OCR are optional. The default local retrieval path uses multilingual BM25.
@@ -497,7 +497,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 
 - replace local JSON/JSONL with PostgreSQL/PostGIS, Delta tables, or another governed data store;
 - replace local uploads with governed document storage;
-- replace local source files with object storage such as AWS S3;
+- replace local source files with managed object storage;
 - add RBAC, document-level permissions, audit logging, prompt logging, and data-retention policies;
 - use production OCR for scanned drawings, reports, and image-heavy PDFs;
 - use managed vector search and monitored retrieval pipelines;
@@ -533,7 +533,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 
 - Estimate expected user volume, document volume, and dossier generation frequency.
 - Decide whether local processing remains sufficient or whether distributed processing is needed.
-- Evaluate production storage and processing options such as Databricks Delta tables, PostgreSQL/PostGIS, object storage, and scheduled jobs.
+- Evaluate production storage and processing options such as managed lakehouse tables, PostgreSQL/PostGIS, object storage, and scheduled jobs.
 - Plan deployment resources for backend, frontend, document processing, OCR, retrieval, and LLM serving.
 - Design the first SECO internal-data integration: historical inspection reports, defect observations, photos, measurements, and project metadata.
 - Prototype similar-case retrieval and experience-enhanced inspection checklist generation from governed internal data.
@@ -544,9 +544,9 @@ The following MVP components should be rebuilt or replaced in a production versi
 
 The local MVP is intentionally lightweight. A production version would likely use:
 
-- **Databricks** for Bronze/Silver/Gold data layers, batch processing, model serving, vector search, and governance;
-- **AWS S3** or equivalent object storage for raw documents and generated artifacts;
-- **AWS Textract** or another production OCR service for scanned files;
+- managed data and AI platforms for Bronze/Silver/Gold data layers, batch processing, model serving, vector search, and governance;
+- object storage for raw documents and generated artifacts;
+- production OCR service for scanned files;
 - **PostgreSQL/PostGIS** for structured site, geometry, dossier, and evidence metadata;
 - **RBAC and audit logs** for controlled access to customer and SECO internal data;
 - **rule-engine services** for deterministic readiness-matrix status assignment and missing-information logic;

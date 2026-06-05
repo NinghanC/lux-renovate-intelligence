@@ -147,6 +147,33 @@
     }
   },
   {
+    "source_id": "src_upload_demo_diekirch_cite_militaire_001_upload_b0b25abde978_sample_condition_observations",
+    "display_name": "demo_diekirch_cite_militaire_001_upload_b0b25abde978_sample_condition_observations.pdf",
+    "source_type": "uploaded_document",
+    "source_subtype": "fire_safety_dossier",
+    "modality": "pdf",
+    "authority": "user_supplied",
+    "commune": null,
+    "language": null,
+    "original_url": null,
+    "source_page_url": null,
+    "local_path": "C:\\Git\\lux-renovate-intelligence\\data\\raw\\uploads\\demo_diekirch_cite_militaire_001_upload_b0b25abde978_sample_condition_observations.pdf",
+    "checksum_sha256": "e3a60d970b3291ac0b4b681091c79629f955b302b455e4ade101925398013b07",
+    "page_count": 2,
+    "parser": "pymupdf_or_ocr",
+    "status": "available",
+    "metadata": {
+      "document_id": "upload_demo_diekirch_cite_militaire_001_upload_b0b25abde978_sample_condition_observations",
+      "upload_document_id": "upload_b0b25abde978",
+      "source_id": "src_upload_demo_diekirch_cite_militaire_001_upload_b0b25abde978_sample_condition_observations",
+      "source_subtype": "fire_safety_dossier",
+      "original_filename": "sample_condition_observations.pdf",
+      "site_id": "demo_diekirch_cite_militaire_001",
+      "commune": "Diekirch",
+      "modality": "pdf"
+    }
+  },
+  {
     "source_id": "src_upload_demo_lux_laangfur_001_upload_01d501d13d85_sample_condition_observations",
     "display_name": "demo_lux_laangfur_001_upload_01d501d13d85_sample_condition_observations.pdf",
     "source_type": "uploaded_document",

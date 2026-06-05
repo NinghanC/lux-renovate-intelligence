@@ -4,9 +4,9 @@
 
 1. Demo site selection loads a fixed `SiteContext`.
 2. The UI waits; it does not pre-retrieve evidence.
-3. When the user clicks Generate, planning chunks are loaded from a source-hash checked local cache when possible. Cache misses parse raw planning PDFs with PyMuPDF, and pages with too little extracted text can fall back to AWS Textract OCR.
+3. When the user clicks Generate, planning chunks are loaded from a source-hash checked local cache when possible. Cache misses parse raw planning PDFs with PyMuPDF. Optional OCR can be configured for scanned PDFs, but the public demo does not require cloud OCR.
 4. Retrieval runs purpose-based queries for planning context, documentation gaps, technical risk, site inspection, and renovation constraints. Each query scores chunks with multilingual BM25 keyword relevance and optional embeddings.
-5. Optional rerank reranks the strongest retrieval candidates when configured. The recommended local setup uses AWS Bedrock Cohere Rerank 3.5.
+5. Optional rerank reranks the strongest retrieval candidates when configured. The public demo keeps rerank disabled and uses local keyword retrieval by default.
 6. Retrieved chunks become source-aware `EvidenceObject` records. Site profile and lightweight GeoJSON context are also added as low-risk context evidence.
 7. The default mock generator, or the configured LLM, receives site context, evidence, and taxonomy, then returns a `DossierDraft`.
 8. Validators check schema, required evidence refs for user-facing findings/checklists, source registry links, page ranges, taxonomy completeness, source-type support, and forbidden claims.
@@ -16,13 +16,13 @@
 
 - `SiteResolver`: loads demo sites and creates site context.
 - `DocumentParser`: extracts PDF/text and chunks it.
-- `OCRProvider`: AWS Textract fallback for scanned PDF pages, with an optional Databricks vision endpoint path.
+- `OCRProvider`: optional OCR adapter for scanned PDF pages; disabled in the public demo.
 - `SourceRegistry`: registers planning PDFs, site profiles, uploaded documents, GeoJSON, and system-derived evidence.
 - `GeoJsonService`: reads lightweight GeoJSON and calculates coordinate distances.
 - `DocumentRetriever`: purpose-based multilingual BM25 + optional embedding retrieval and rerank orchestration.
-- `RerankProvider`: optional AWS Bedrock Cohere Rerank 3.5 adapter.
+- `RerankProvider`: optional managed rerank adapter; disabled in the public demo.
 - `MockLLMProvider`: deterministic demo generator for reviewer-friendly local runs without API keys.
-- `LLMProvider`: OpenAI-compatible chat completion adapter for Databricks Serving Endpoints.
+- `LLMProvider`: OpenAI-compatible chat completion adapter for externally configured model endpoints.
 - `DossierGenerator`: prompt assembly, LLM call, and dossier assembly.
 - `EvidenceValidator`: guardrails, source integrity checks, and reference checks.
 - `CoverageCalculator`: deterministic evidence-coverage metric based on matrix statuses.
@@ -50,26 +50,26 @@ LLM_PROVIDER=mock
 LLM_MOCK_MODE=true
 ```
 
-For real external generation, use Databricks or another OpenAI-compatible endpoint for LLM and embedding calls and AWS for rerank and OCR:
+For real external generation, use any OpenAI-compatible endpoint for LLM and optional embedding calls. Keep actual workspace hosts, model IDs, tokens, and cloud account details only in a local `.env`:
 
 ```env
-LLM_PROVIDER=databricks
+LLM_PROVIDER=<your-openai-compatible-provider>
 LLM_MOCK_MODE=false
-LLM_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints
-LLM_MODEL=databricks-meta-llama-3-3-70b-instruct
-EMBEDDING_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints
-EMBEDDING_MODEL=your-databricks-embedding-endpoint
+LLM_BASE_URL=https://<your-provider-host>/<openai-compatible-path>
+LLM_MODEL=<your-chat-model-or-serving-endpoint-name>
+EMBEDDING_BASE_URL=https://<your-provider-host>/<embedding-path>
+EMBEDDING_MODEL=<your-embedding-model-or-serving-endpoint-name>
 ```
 
 Real API tokens belong only in a local `.env` file.
 
-AWS Bedrock rerank can be enabled with:
+Optional cloud rerank and OCR providers can be enabled with provider-specific values:
 
 ```env
-RERANK_PROVIDER=aws_bedrock
-RERANK_MODEL=cohere.rerank-v3-5:0
-RERANK_AWS_REGION=us-east-1
-OCR_PROVIDER=aws_textract
-OCR_MODEL=aws-textract-detect-document-text
-OCR_AWS_REGION=us-east-1
+RERANK_PROVIDER=<your-rerank-provider>
+RERANK_MODEL=<your-rerank-model-id-or-arn>
+RERANK_AWS_REGION=<your-region-if-applicable>
+OCR_PROVIDER=<your-ocr-provider>
+OCR_MODEL=<your-ocr-model-or-provider-label>
+OCR_AWS_REGION=<your-region-if-applicable>
 ```

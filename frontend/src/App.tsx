@@ -423,7 +423,7 @@ function App() {
         ) : (
           <section className="empty-state">
             <h2>Ready to generate</h2>
-            <p>Generate runs parsing, chunking, multilingual BM25 retrieval, optional rerank, LLM generation, and validation.</p>
+            <p>Generate runs parsing, chunking, multilingual BM25 retrieval, optional rerank, mock or LLM generation, and validation.</p>
           </section>
         )}
       </section>
