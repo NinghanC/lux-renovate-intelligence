@@ -1,7 +1,7 @@
-import type { DemoSite, Dossier, RetrievedEvidence, SiteContext, SiteGeoJsonResponse } from "../types/dossier";
+import type { DemoSite, Dossier, RetrievedEvidence, SiteContext, SiteGeoJsonResponse, SourceRecordPublic } from "../types/dossier";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-const API_AUTH_TOKEN = import.meta.env.VITE_API_AUTH_TOKEN ?? "dev-demo-token-change-me";
+const API_AUTH_TOKEN = import.meta.env.VITE_API_AUTH_TOKEN ?? "";
 const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 240000);
 
 function authHeaders(headers?: HeadersInit): Headers {
@@ -10,10 +10,6 @@ function authHeaders(headers?: HeadersInit): Headers {
     result.set("X-API-Key", API_AUTH_TOKEN);
   }
   return result;
-}
-
-function authQuery(): string {
-  return API_AUTH_TOKEN ? `api_key=${encodeURIComponent(API_AUTH_TOKEN)}` : "";
 }
 
 export type GenerateDossierOptions = {
@@ -75,12 +71,48 @@ export function retrieveEvidence(siteId: string, query: string): Promise<Retriev
   return request<RetrievedEvidence>(`/api/evidence?${params.toString()}`);
 }
 
-export function uploadDocument(siteId: string, file: File, sourceSubtype?: string): Promise<unknown> {
+export function getActiveDocuments(siteId: string): Promise<SourceRecordPublic[]> {
+  const params = new URLSearchParams({ site_id: siteId });
+  return request<SourceRecordPublic[]>(`/api/documents/active?${params.toString()}`);
+}
+
+export function removeActiveDocument(siteId: string, sourceId: string): Promise<SourceRecordPublic[]> {
+  const params = new URLSearchParams({ site_id: siteId });
+  return request<SourceRecordPublic[]>(`/api/documents/active/${encodeURIComponent(sourceId)}?${params.toString()}`, {
+    method: "DELETE"
+  });
+}
+
+export function updateActiveDocumentType(siteId: string, sourceId: string, sourceSubtype: string): Promise<SourceRecordPublic[]> {
+  const params = new URLSearchParams({ site_id: siteId });
+  return request<SourceRecordPublic[]>(`/api/documents/active/${encodeURIComponent(sourceId)}?${params.toString()}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source_subtype: sourceSubtype })
+  });
+}
+
+export function uploadDocument(siteId: string, file: File, sourceSubtype?: string, replaceActiveDocuments = false): Promise<unknown> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("site_id", siteId);
   if (sourceSubtype) formData.append("source_subtype", sourceSubtype);
+  formData.append("replace_active_documents", String(replaceActiveDocuments));
   return request<unknown>("/api/documents/upload", {
+    method: "POST",
+    body: formData
+  });
+}
+
+export function uploadDocuments(siteId: string, files: File[], sourceSubtype?: string, replaceActiveDocuments = false): Promise<unknown> {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  formData.append("site_id", siteId);
+  if (sourceSubtype) formData.append("source_subtype", sourceSubtype);
+  formData.append("replace_active_documents", String(replaceActiveDocuments));
+  return request<unknown>("/api/documents/upload-batch", {
     method: "POST",
     body: formData
   });
@@ -104,6 +136,22 @@ export async function generateDossier(siteId: string, options: GenerateDossierOp
 
 export function getDocumentSourceUrl(sourceId: string, page?: number | null): string {
   const pageHash = page ? `#page=${page}` : "";
-  const query = authQuery();
-  return `${API_BASE_URL}/api/sources/${encodeURIComponent(sourceId)}/file${query ? `?${query}` : ""}${pageHash}`;
+  return `${API_BASE_URL}/api/sources/${encodeURIComponent(sourceId)}/file${pageHash}`;
+}
+
+export async function getDocumentSourceBlobUrl(sourceId: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/api/sources/${encodeURIComponent(sourceId)}/file`, {
+    headers: authHeaders()
+  });
+  if (!response.ok) {
+    let detail = `HTTP ${response.status}`;
+    try {
+      const payload = await response.json();
+      detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail);
+    } catch {
+      detail = await response.text();
+    }
+    throw new Error(detail);
+  }
+  return URL.createObjectURL(await response.blob());
 }

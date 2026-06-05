@@ -1,7 +1,6 @@
 import json
 from typing import Any
 
-import anyio
 import httpx
 from pydantic import BaseModel
 
@@ -16,6 +15,7 @@ from app.models.schemas import (
 )
 from app.models.usage import TokenUsage
 from app.services.retry_policy import async_post_with_retries
+from app.services.retry_policy import post_with_retries
 from app.services.token_monitor import build_mock_usage, build_real_usage
 
 
@@ -73,10 +73,28 @@ class LLMProvider:
         return endpoint, payload, headers
 
     def generate_draft(self, *, system_prompt: str, user_prompt: str) -> LLMGenerationResult:
-        async def generate() -> LLMGenerationResult:
-            return await self.generate_draft_async(system_prompt=system_prompt, user_prompt=user_prompt)
-
-        return anyio.run(generate)
+        endpoint, payload, headers = self._request_parts(system_prompt=system_prompt, user_prompt=user_prompt)
+        try:
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                response = post_with_retries(client.post, endpoint, json=payload, headers=headers)
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as exc:
+                    raise LLMGenerationError(
+                        f"LLM request failed with HTTP {response.status_code}: {response.text[:500]}"
+                    ) from exc
+            response_payload = response.json()
+            return self._parse_generation_response(
+                response_payload=response_payload,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+            )
+        except LLMGenerationError:
+            raise
+        except httpx.HTTPError as exc:
+            raise LLMGenerationError(f"LLM request failed: {exc}") from exc
+        except (KeyError, json.JSONDecodeError, ValueError) as exc:
+            raise LLMGenerationError(f"LLM response was not valid dossier JSON: {exc}") from exc
 
     async def generate_draft_async(self, *, system_prompt: str, user_prompt: str) -> LLMGenerationResult:
         endpoint, payload, headers = self._request_parts(system_prompt=system_prompt, user_prompt=user_prompt)
@@ -236,6 +254,8 @@ def _mock_matrix_item(locked_item: dict[str, Any]) -> ReadinessMatrixItem:
         category_id=locked_item["category_id"],
         label=locked_item["label"],
         status=locked_item["status"],
+        phase=locked_item.get("phase"),
+        criticality=locked_item.get("criticality"),
         summary=str(locked_item.get("status_reason") or "Rule-derived mission readiness status requires expert review."),
         evidence_refs=list(locked_item.get("evidence_refs") or []),
         recommended_next_action=str(

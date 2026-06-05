@@ -6,7 +6,13 @@ import fitz
 
 from app.core.paths import PROCESSED_DIR, RAW_PLANNING_DIR, RAW_UPLOADS_DIR, SAMPLE_DIR
 from app.models.schemas import PlanningChunk, SourceRecord
-from app.services.evidence_metadata import infer_upload_subtype, is_upload_metadata_path, modality_for_path, read_upload_metadata
+from app.services.evidence_metadata import (
+    infer_upload_subtype,
+    is_upload_metadata_path,
+    modality_for_path,
+    read_upload_metadata,
+    upload_metadata_path,
+)
 from app.services.json_store import read_json, write_json
 
 
@@ -63,17 +69,27 @@ class SourceRegistry:
         self.raw_planning_dir = raw_planning_dir
         self.raw_uploads_dir = raw_uploads_dir
         self.registry_path = registry_path
+        self._cached_signature: tuple[object, ...] | None = None
+        self._cached_sources: list[SourceRecord] | None = None
 
     def list_sources(self) -> list[SourceRecord]:
+        signature = self._source_signature()
+        if self._cached_signature == signature and self._cached_sources is not None:
+            return list(self._cached_sources)
         records = (
             self._planning_sources()
             + self._site_profile_sources()
             + self._uploaded_sources()
             + [self._geojson_source(), self._derived_source()]
         )
-        return sorted(records, key=lambda item: item.source_id)
+        records = sorted(records, key=lambda item: item.source_id)
+        self._cached_signature = signature
+        self._cached_sources = records
+        return list(records)
 
     def refresh_snapshot(self) -> list[SourceRecord]:
+        self._cached_signature = None
+        self._cached_sources = None
         records = self.list_sources()
         write_json(self.registry_path, [record.model_dump(mode="json") for record in records])
         return records
@@ -86,6 +102,37 @@ class SourceRegistry:
 
     def source_for_chunk(self, chunk: PlanningChunk) -> SourceRecord | None:
         return self.get_by_id(chunk.source_id or source_id_for_document(chunk.document_id))
+
+    def _source_signature(self) -> tuple[object, ...]:
+        return (
+            self._file_signature(self.planning_sources_path),
+            self._file_signature(DEMO_SITES_PATH),
+            self._directory_signature(self.raw_planning_dir),
+            self._directory_signature(self.raw_uploads_dir),
+            self._file_signature(SAMPLE_DIR / "demo_geospatial.geojson"),
+        )
+
+    def _file_signature(self, path: Path) -> tuple[str, int, int] | None:
+        try:
+            stat = path.stat()
+        except OSError:
+            return None
+        return (str(path), stat.st_mtime_ns, stat.st_size)
+
+    def _directory_signature(self, path: Path) -> tuple[tuple[str, int, int], ...]:
+        if not path.exists():
+            return ()
+        signatures: list[tuple[str, int, int]] = []
+        for item in sorted(path.iterdir()):
+            if not item.is_file() or is_upload_metadata_path(item):
+                continue
+            file_signature = self._file_signature(item)
+            if file_signature is not None:
+                signatures.append(file_signature)
+            metadata_signature = self._file_signature(upload_metadata_path(item))
+            if metadata_signature is not None:
+                signatures.append(metadata_signature)
+        return tuple(signatures)
 
     def _planning_sources(self) -> list[SourceRecord]:
         if not self.planning_sources_path.exists():

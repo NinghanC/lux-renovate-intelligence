@@ -6,11 +6,16 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.core.paths import RAW_PLANNING_DIR, RAW_UPLOADS_DIR
-from app.models.schemas import RetrievedEvidence, SourceRecordPublic, UploadResponse
+from app.models.schemas import ActiveDocumentUpdate, RetrievedEvidence, SourceRecordPublic, UploadResponse
 from app.services.document_retriever import DocumentRetriever
 from app.services.document_upload import save_and_chunk_upload
+from app.services.planning_ingestion import (
+    latest_upload_paths_for_site,
+    remove_active_upload_by_source_id,
+    update_active_upload_subtype,
+)
 from app.services.site_resolver import SiteNotFoundError, SiteResolver
-from app.services.source_registry import SourceRegistry
+from app.services.source_registry import SourceRegistry, source_id_for_document
 
 
 router = APIRouter(prefix="/api", tags=["documents"])
@@ -57,6 +62,7 @@ async def upload_document(
     site_id: str | None = Form(default=None),
     commune: str | None = Form(default=None),
     source_subtype: str | None = Form(default=None),
+    replace_active_documents: bool = Form(default=False),
 ) -> UploadResponse:
     try:
         resolved_commune = commune
@@ -69,7 +75,42 @@ async def upload_document(
             site_id=site_id,
             commune=resolved_commune or "uploaded",
             source_subtype=source_subtype,
+            replace_active_documents=replace_active_documents,
         )
+    except UploadTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except (ValueError, SiteNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/documents/upload-batch", response_model=list[UploadResponse])
+async def upload_documents(
+    files: list[UploadFile] = File(...),
+    site_id: str | None = Form(default=None),
+    commune: str | None = Form(default=None),
+    source_subtype: str | None = Form(default=None),
+    replace_active_documents: bool = Form(default=False),
+) -> list[UploadResponse]:
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one file is required.")
+    try:
+        resolved_commune = commune
+        if site_id and not resolved_commune:
+            resolved_commune = resolver.get_site(site_id).commune
+        uploads: list[UploadResponse] = []
+        for index, file in enumerate(files):
+            content = await _read_upload_with_limit(file)
+            uploads.append(
+                save_and_chunk_upload(
+                    filename=file.filename or "uploaded_document",
+                    content=content,
+                    site_id=site_id,
+                    commune=resolved_commune or "uploaded",
+                    source_subtype=source_subtype,
+                    replace_active_documents=replace_active_documents and index == 0,
+                )
+            )
+        return uploads
     except UploadTooLargeError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (ValueError, SiteNotFoundError) as exc:
@@ -100,6 +141,56 @@ def retrieve_evidence(
 def list_sources(refresh: bool = False) -> list[SourceRecordPublic]:
     sources = source_registry.refresh_snapshot() if refresh else source_registry.list_sources()
     return [SourceRecordPublic.model_validate(source.model_dump()) for source in sources]
+
+
+@router.get("/documents/active", response_model=list[SourceRecordPublic])
+def list_active_documents(site_id: str) -> list[SourceRecordPublic]:
+    try:
+        resolver.get_site(site_id)
+    except SiteNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    sources = []
+    for path in latest_upload_paths_for_site(site_id):
+        source = source_registry.get_by_id(source_id_for_document(f"upload_{path.stem}"))
+        if source is not None:
+            sources.append(SourceRecordPublic.model_validate(source.model_dump()))
+    return sources
+
+
+@router.delete("/documents/active/{source_id}", response_model=list[SourceRecordPublic])
+def remove_active_document(source_id: str, site_id: str) -> list[SourceRecordPublic]:
+    try:
+        resolver.get_site(site_id)
+    except SiteNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    removed = remove_active_upload_by_source_id(site_id=site_id, source_id=source_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Active document not found for this case.")
+    return list_active_documents(site_id)
+
+
+@router.patch("/documents/active/{source_id}", response_model=list[SourceRecordPublic])
+def update_active_document(
+    source_id: str,
+    payload: ActiveDocumentUpdate,
+    site_id: str,
+) -> list[SourceRecordPublic]:
+    try:
+        resolver.get_site(site_id)
+    except SiteNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    try:
+        updated = update_active_upload_subtype(
+            site_id=site_id,
+            source_id=source_id,
+            source_subtype=payload.source_subtype,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not updated:
+        raise HTTPException(status_code=404, detail="Active document not found for this case.")
+    source_registry.refresh_snapshot()
+    return list_active_documents(site_id)
 
 
 @router.get("/sources/{source_id}/file")

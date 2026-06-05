@@ -13,6 +13,7 @@ from app.services.embedding_provider import EmbeddingProvider, cosine_similarity
 from app.services.evidence_metadata import evidence_role_for_document_type, infer_upload_subtype, modality_for_path
 from app.services.json_store import read_jsonl
 from app.services.multilingual_terms import expand_query_tokens, infer_support_categories, tokenize
+from app.services.planning_ingestion import latest_upload_paths_for_site
 from app.services.rerank_provider import RerankProvider
 from app.services.source_registry import SourceRegistry, source_id_for_document
 
@@ -39,11 +40,17 @@ class DocumentRetriever:
         self.rerank_provider = rerank_provider or RerankProvider()
         self.source_registry = source_registry or SourceRegistry()
 
-    def load_chunks(self, include_uploaded: bool = True) -> list[PlanningChunk]:
+    def load_chunks(self, include_uploaded: bool = True, site_id: str | None = None) -> list[PlanningChunk]:
         chunks = read_jsonl(self.chunks_path, PlanningChunk)
         if include_uploaded and self.uploads_dir.exists():
+            active_uploaded_document_ids = _active_uploaded_document_ids(site_id)
             for path in sorted(self.uploads_dir.glob("*.jsonl")):
-                chunks.extend(read_jsonl(path, PlanningChunk))
+                uploaded_chunks = read_jsonl(path, PlanningChunk)
+                if active_uploaded_document_ids is not None:
+                    uploaded_chunks = [
+                        chunk for chunk in uploaded_chunks if chunk.document_id in active_uploaded_document_ids
+                    ]
+                chunks.extend(uploaded_chunks)
         return chunks
 
     def _load_embeddings(self) -> dict[str, list[float]]:
@@ -66,13 +73,13 @@ class DocumentRetriever:
         include_uploaded: bool = True,
         site_id: str | None = None,
     ) -> RetrievedEvidence:
-        chunks = self.load_chunks(include_uploaded=include_uploaded)
+        chunks = self.load_chunks(include_uploaded=include_uploaded, site_id=site_id)
         filtered = [
             chunk
             for chunk in chunks
             if chunk.commune.lower() == commune.lower()
             or chunk.metadata.get("site_id") in {site_id, "global"}
-            or chunk.document_type == "uploaded"
+            or (chunk.document_type == "uploaded" and chunk.metadata.get("site_id") in {site_id, "global"})
         ]
         if not filtered:
             return RetrievedEvidence(
@@ -389,3 +396,9 @@ def _metadata_int(value: object) -> int | None:
     if isinstance(value, str) and value.isdigit():
         return int(value)
     return None
+
+
+def _active_uploaded_document_ids(site_id: str | None) -> set[str] | None:
+    if not site_id:
+        return None
+    return {f"upload_{path.stem}" for path in latest_upload_paths_for_site(site_id)}

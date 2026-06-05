@@ -136,6 +136,10 @@ def validate_matrix_matches_rule_output(draft: DossierDraft, rule_matrix: list[R
             raise ValidationFailure(f"LLM changed rule-derived label for '{item.category_id}'.")
         if item.status != expected.status:
             raise ValidationFailure(f"LLM changed rule-derived status for '{item.category_id}'.")
+        if item.phase != expected.phase:
+            raise ValidationFailure(f"LLM changed rule-derived phase for '{item.category_id}'.")
+        if item.criticality != expected.criticality:
+            raise ValidationFailure(f"LLM changed rule-derived criticality for '{item.category_id}'.")
         if item.evidence_refs != expected.evidence_refs:
             raise ValidationFailure(f"LLM changed rule-derived evidence refs for '{item.category_id}'.")
 

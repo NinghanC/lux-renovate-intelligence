@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.api import routes_dossiers
+from app.core import auth
 from app.main import app
 from app.models.schemas import CoverageScore, Dossier, EvidenceObject, EvidenceType, RetrievedEvidence
 from app.services.dossier_generator import PROMPT_VERSION
@@ -15,7 +16,9 @@ from app.services.semantic_reviewer import SEMANTIC_REVIEW_VERSION
 from app.services.taxonomy import TAXONOMY_VERSION, taxonomy_fingerprint
 
 
-AUTH_HEADERS = {"X-API-Key": "dev-demo-token-change-me"}
+TEST_API_AUTH_TOKEN = "test-api-token"
+auth.settings = type("AuthSettings", (), {"api_auth_enabled": True, "api_auth_token": TEST_API_AUTH_TOKEN})()
+AUTH_HEADERS = {"X-API-Key": TEST_API_AUTH_TOKEN}
 
 
 class DummyIngestion:
@@ -213,7 +216,7 @@ def test_generate_cache_signature_includes_generation_contract_versions(monkeypa
         commune="Luxembourg",
     )
 
-    assert signature["cache_version"] == 3
+    assert signature["cache_version"] == 4
     assert signature["generation_contract"] == {
         "prompt_version": PROMPT_VERSION,
         "readiness_rule_engine_version": READINESS_RULE_ENGINE_VERSION,

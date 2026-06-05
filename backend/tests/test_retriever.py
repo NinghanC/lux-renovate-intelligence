@@ -1,4 +1,5 @@
 from app.models.schemas import PlanningChunk
+from app.services import document_retriever
 from app.services.document_retriever import DocumentRetriever
 from app.services.planning_ingestion import PlanningIngestionService
 
@@ -98,6 +99,73 @@ def test_chunk_line_metadata_is_exposed_on_evidence_locator():
     assert result.results[0].locator is not None
     assert result.results[0].locator.line_start == 4
     assert result.results[0].locator.line_end == 6
+
+
+def test_retrieve_loads_only_active_uploads_for_selected_site(tmp_path, monkeypatch):
+    uploads_dir = tmp_path / "processed_uploads"
+    uploads_dir.mkdir()
+    active_document_id = "upload_demo_site_upload_new_condition_notes"
+    stale_document_id = "upload_demo_site_upload_old_condition_notes"
+    other_site_document_id = "upload_other_site_upload_condition_notes"
+    chunks = [
+        PlanningChunk(
+            chunk_id=f"{active_document_id}_p001_c001",
+            document_id=active_document_id,
+            document_name="new condition notes.txt",
+            document_type="uploaded",
+            commune="Luxembourg",
+            page=1,
+            text="Active roof condition evidence.",
+            source_path="new_condition_notes.txt",
+            metadata={"site_id": "demo_site"},
+        ),
+        PlanningChunk(
+            chunk_id=f"{stale_document_id}_p001_c001",
+            document_id=stale_document_id,
+            document_name="old condition notes.txt",
+            document_type="uploaded",
+            commune="Luxembourg",
+            page=1,
+            text="Stale roof condition evidence.",
+            source_path="old_condition_notes.txt",
+            metadata={"site_id": "demo_site"},
+        ),
+        PlanningChunk(
+            chunk_id=f"{other_site_document_id}_p001_c001",
+            document_id=other_site_document_id,
+            document_name="other condition notes.txt",
+            document_type="uploaded",
+            commune="Luxembourg",
+            page=1,
+            text="Other site roof condition evidence.",
+            source_path="other_condition_notes.txt",
+            metadata={"site_id": "other_site"},
+        ),
+    ]
+    (uploads_dir / "uploads.jsonl").write_text(
+        "\n".join(chunk.model_dump_json() for chunk in chunks),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        document_retriever,
+        "latest_upload_paths_for_site",
+        lambda site_id: [tmp_path / "demo_site_upload_new_condition_notes.txt"],
+    )
+
+    result = DocumentRetriever(
+        chunks_path=tmp_path / "missing_planning.jsonl",
+        uploads_dir=uploads_dir,
+        embedding_provider=DisabledEmbeddingProvider(),
+        rerank_provider=DisabledRerankProvider(),
+    ).retrieve(
+        commune="Luxembourg",
+        site_id="demo_site",
+        query="roof condition",
+        limit=5,
+        include_uploaded=True,
+    )
+
+    assert [item.chunk_id for item in result.results] == [f"{active_document_id}_p001_c001"]
 
 
 def test_purpose_based_retrieval_merges_results_and_tracks_purpose():

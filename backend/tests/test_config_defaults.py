@@ -15,10 +15,10 @@ def test_real_provider_can_disable_mock_mode():
     assert _effective_llm_mock_mode("openai_compatible", False) is False
 
 
-def test_missing_api_auth_token_defaults_to_demo_token(monkeypatch):
+def test_missing_api_auth_token_is_unconfigured(monkeypatch):
     monkeypatch.delenv("API_AUTH_TOKEN", raising=False)
 
-    assert _api_auth_token() == "dev-demo-token-change-me"
+    assert _api_auth_token() is None
 
 
 def test_empty_api_auth_token_is_treated_as_unconfigured(monkeypatch):

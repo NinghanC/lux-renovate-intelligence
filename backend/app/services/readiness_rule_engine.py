@@ -14,12 +14,16 @@ class RuleMatrixItem:
     evidence_refs: list[str]
     status_reason: str
     recommended_next_action_seed: str
+    phase: str = "Client follow-up"
+    criticality: str = "important"
 
     def model_dump(self) -> dict[str, object]:
         return {
             "category_id": self.category_id,
             "label": self.label,
             "status": self.status,
+            "phase": self.phase,
+            "criticality": self.criticality,
             "evidence_refs": self.evidence_refs,
             "status_reason": self.status_reason,
             "recommended_next_action_seed": self.recommended_next_action_seed,
@@ -132,6 +136,22 @@ CATEGORY_RULES: dict[str, dict[str, object]] = {
 }
 
 
+CATEGORY_BUSINESS_META: dict[str, dict[str, str]] = {
+    "site_identity_location": {"phase": "Case identification", "criticality": "critical"},
+    "planning_regulatory_context": {"phase": "Risk and compliance", "criticality": "important"},
+    "existing_drawings": {"phase": "Required documents", "criticality": "critical"},
+    "structural_documentation": {"phase": "Required documents", "criticality": "critical"},
+    "fire_safety_documentation": {"phase": "Required documents", "criticality": "critical"},
+    "building_envelope_roof": {"phase": "Technical assessment", "criticality": "important"},
+    "humidity_water_infiltration": {"phase": "Technical assessment", "criticality": "important"},
+    "mep_systems": {"phase": "Technical assessment", "criticality": "important"},
+    "energy_performance": {"phase": "Technical assessment", "criticality": "important"},
+    "hazardous_materials": {"phase": "Risk and compliance", "criticality": "critical"},
+    "accessibility_egress": {"phase": "Risk and compliance", "criticality": "important"},
+    "renovation_scope_constraints": {"phase": "Site inspection preparation", "criticality": "optional"},
+}
+
+
 MISSING_REASON = "No verified case-file evidence was retrieved for this mission readiness category."
 MISSING_ACTIONS = {
     "existing_drawings": "Request current drawings, as-built records, and any historic alteration plans.",
@@ -180,18 +200,24 @@ def _evaluate_category(taxonomy_item: ReadinessTaxonomyItem, evidence: list[Evid
     rule = CATEGORY_RULES.get(category_id, {})
     refs = _matching_refs(evidence, rule)
     if refs:
+        meta = _business_meta(category_id)
         return RuleMatrixItem(
             category_id=category_id,
             label=taxonomy_item.label,
             status=rule.get("status_with_refs", "partial"),  # type: ignore[arg-type]
+            phase=meta["phase"],
+            criticality=meta["criticality"],
             evidence_refs=refs[:3],
             status_reason=str(rule.get("reason_with_refs", "Relevant evidence is present but needs expert review.")),
             recommended_next_action_seed=str(rule.get("next_action", _missing_action(category_id, taxonomy_item.label))),
         )
+    meta = _business_meta(category_id)
     return RuleMatrixItem(
         category_id=category_id,
         label=taxonomy_item.label,
         status="missing",
+        phase=meta["phase"],
+        criticality=meta["criticality"],
         evidence_refs=[],
         status_reason=MISSING_REASON,
         recommended_next_action_seed=_missing_action(category_id, taxonomy_item.label),
@@ -243,3 +269,7 @@ def _logical_evidence_ref(item: EvidenceObject) -> tuple[object, ...]:
 
 def _missing_action(category_id: str, label: str) -> str:
     return MISSING_ACTIONS.get(category_id, f"Collect verified evidence for {label.lower()}.")
+
+
+def _business_meta(category_id: str) -> dict[str, str]:
+    return CATEGORY_BUSINESS_META.get(category_id, {"phase": "Client follow-up", "criticality": "important"})

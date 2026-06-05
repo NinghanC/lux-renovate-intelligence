@@ -11,6 +11,7 @@ from app.models.semantic_review import SemanticReview
 from app.models.usage import TokenUsage
 from app.services.llm_provider import extract_json_object, normalize_message_content
 from app.services.readiness_rule_engine import RuleMatrixItem
+from app.services.retry_policy import async_post_with_retries
 from app.services.retry_policy import post_with_retries
 from app.services.token_monitor import build_real_usage
 
@@ -44,6 +45,7 @@ class SemanticReviewer:
         response_format: str | None = settings.semantic_review_response_format,
         timeout_seconds: int = settings.semantic_review_timeout_seconds,
         transport: httpx.BaseTransport | None = None,
+        async_transport: httpx.AsyncBaseTransport | None = None,
     ):
         self.provider = provider
         self.api_key = api_key
@@ -52,6 +54,7 @@ class SemanticReviewer:
         self.response_format = response_format
         self.timeout_seconds = timeout_seconds
         self.transport = transport
+        self.async_transport = async_transport
 
     @property
     def enabled(self) -> bool:
@@ -101,6 +104,73 @@ class SemanticReviewer:
         try:
             with httpx.Client(timeout=self.timeout_seconds, transport=self.transport) as client:
                 response = post_with_retries(client.post, endpoint, json=payload, headers=headers)
+                response.raise_for_status()
+            response_payload = response.json()
+            response_text = normalize_message_content(response_payload["choices"][0]["message"]["content"])
+            review = SemanticReview.model_validate(json.loads(extract_json_object(response_text)))
+            review.enabled = True
+            review.reviewer_provider = self.provider
+            review.reviewer_model = self.model
+            review.blocking = False
+            usage = build_real_usage(
+                provider=self.provider,
+                model=self.model,
+                system_prompt=REVIEW_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                response_text=response_text,
+                response_payload=response_payload,
+            )
+            return SemanticReviewResult(review=review, usage=usage)
+        except (httpx.HTTPError, KeyError, json.JSONDecodeError, ValueError) as exc:
+            logger.warning("Semantic reviewer failed: %s", exc)
+            return SemanticReviewResult(
+                review=failed_semantic_review(
+                    provider=self.provider,
+                    model=self.model,
+                    message="Semantic reviewer failed. Generation output was not blocked.",
+                )
+            )
+
+    async def review_async(
+        self,
+        *,
+        site_context: SiteContext,
+        dossier: Dossier,
+        evidence: list[EvidenceObject],
+        rule_matrix: list[RuleMatrixItem],
+    ) -> SemanticReviewResult:
+        if not self.enabled:
+            return SemanticReviewResult(review=disabled_semantic_review())
+        if not self.configured:
+            return SemanticReviewResult(
+                review=failed_semantic_review(
+                    provider=self.provider,
+                    model=self.model,
+                    message="Semantic reviewer is enabled but not configured.",
+                )
+            )
+
+        user_prompt = build_review_prompt(
+            site_context=site_context,
+            dossier=dossier,
+            evidence=evidence,
+            rule_matrix=rule_matrix,
+        )
+        endpoint = f"{self.base_url}/chat/completions"
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+        }
+        if self.response_format == "json_object":
+            payload["response_format"] = {"type": "json_object"}
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds, transport=self.async_transport) as client:
+                response = await async_post_with_retries(client.post, endpoint, json=payload, headers=headers)
                 response.raise_for_status()
             response_payload = response.json()
             response_text = normalize_message_content(response_payload["choices"][0]["message"]["content"])

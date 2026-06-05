@@ -1,6 +1,7 @@
 import re
 import unicodedata
 from collections import Counter
+from functools import lru_cache
 
 from app.core.config import settings
 from app.core.paths import SAMPLE_DIR
@@ -16,11 +17,23 @@ def tokenize(text: str) -> list[str]:
     return [token for token in re.findall(r"[a-z0-9_]{3,}", normalized) if token]
 
 
-def load_multilingual_terms() -> dict[str, list[str]]:
-    if not TERMS_PATH.exists():
+@lru_cache(maxsize=8)
+def _load_multilingual_terms(path: str, mtime_ns: int | None) -> dict[str, tuple[str, ...]]:
+    del mtime_ns
+    terms_path = TERMS_PATH.__class__(path)
+    if not terms_path.exists():
         return {}
-    data = read_json(TERMS_PATH)
-    return {str(category): [str(term) for term in terms] for category, terms in data.items()}
+    data = read_json(terms_path)
+    return {str(category): tuple(str(term) for term in terms) for category, terms in data.items()}
+
+
+def load_multilingual_terms() -> dict[str, list[str]]:
+    try:
+        mtime_ns = TERMS_PATH.stat().st_mtime_ns
+    except OSError:
+        mtime_ns = None
+    cached = _load_multilingual_terms(str(TERMS_PATH), mtime_ns)
+    return {category: list(terms) for category, terms in cached.items()}
 
 
 def expand_query_tokens(query: str) -> Counter[str]:

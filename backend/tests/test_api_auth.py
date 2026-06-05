@@ -6,7 +6,9 @@ from app.main import app
 from app.core import auth
 
 
-AUTH_HEADERS = {"X-API-Key": "dev-demo-token-change-me"}
+TEST_API_AUTH_TOKEN = "test-api-token"
+auth.settings = SimpleNamespace(api_auth_enabled=True, api_auth_token=TEST_API_AUTH_TOKEN)
+AUTH_HEADERS = {"X-API-Key": TEST_API_AUTH_TOKEN}
 
 
 def test_health_is_public():

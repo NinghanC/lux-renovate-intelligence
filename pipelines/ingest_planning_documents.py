@@ -21,6 +21,7 @@ def main() -> None:
         pages = parse_document(path)
         chunks = chunk_document(
             document_id=source["document_id"],
+            source_id=f"src_{source['document_id']}",
             document_name=source["document_name"],
             document_type=source["document_type"],
             commune=source["commune"],

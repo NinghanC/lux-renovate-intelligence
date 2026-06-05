@@ -127,6 +127,10 @@ class SourceRecordPublic(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class ActiveDocumentUpdate(BaseModel):
+    source_subtype: str
+
+
 class EvidenceLocator(BaseModel):
     page: int | None = None
     line_start: int | None = None
@@ -199,6 +203,8 @@ class ReadinessMatrixItem(BaseModel):
     category_id: str
     label: str
     status: ReadinessStatus
+    phase: str | None = None
+    criticality: str | None = None
     summary: str
     evidence_refs: list[str] = Field(default_factory=list)
     recommended_next_action: str

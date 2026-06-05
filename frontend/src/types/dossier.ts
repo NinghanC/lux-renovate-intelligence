@@ -104,6 +104,23 @@ export interface CoverageScore {
   not_applicable: number;
 }
 
+export interface SourceRecordPublic {
+  source_id: string;
+  display_name: string;
+  source_type: string;
+  source_subtype: string | null;
+  modality: string | null;
+  authority: string;
+  commune: string | null;
+  language: string | null;
+  original_url: string | null;
+  source_page_url: string | null;
+  page_count: number | null;
+  parser: string | null;
+  status: string;
+  metadata: Record<string, unknown>;
+}
+
 export interface TokenUsage {
   generation_mode: "mock" | "real";
   llm_provider: string;
@@ -139,6 +156,8 @@ export interface ReadinessMatrixItem {
   category_id: string;
   label: string;
   status: ReadinessStatus;
+  phase: string | null;
+  criticality: string | null;
   summary: string;
   evidence_refs: string[];
   recommended_next_action: string;

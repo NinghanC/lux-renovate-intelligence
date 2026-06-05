@@ -2,17 +2,15 @@ name: lux-renovate-intelligence
 
 services:
   backend:
-    image: python:3.12-slim
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     working_dir: /app
-    command: >
-      sh -c "pip install --no-cache-dir -r requirements.txt &&
-      pip install --no-cache-dir -e . &&
-      uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
-      - backend_pip_cache:/root/.cache/pip
+      - backend_uploads:/app/data/raw/uploads
+      - backend_processed:/app/data/processed
     environment:
       PYTHONUNBUFFERED: "1"
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
@@ -20,7 +18,7 @@ services:
       CORS_METHODS: ${CORS_METHODS:-GET,POST}
       CORS_HEADERS: ${CORS_HEADERS:-Content-Type,X-API-Key}
       API_AUTH_ENABLED: ${API_AUTH_ENABLED:-true}
-      API_AUTH_TOKEN: ${API_AUTH_TOKEN:-dev-demo-token-change-me}
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN:?Set API_AUTH_TOKEN in your environment or .env before starting compose}
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       LLM_MOCK_MODE: ${LLM_MOCK_MODE:-true}
       LLM_API_KEY: ${LLM_API_KEY:-}
@@ -50,22 +48,20 @@ services:
       start_period: 30s
 
   frontend:
-    image: node:22-alpine
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     working_dir: /app/frontend
-    command: >
-      sh -c "npm ci && npx vite --host 0.0.0.0 --port 5173"
     ports:
       - "5173:5173"
-    volumes:
-      - ./frontend:/app/frontend
-      - frontend_node_modules:/app/frontend/node_modules
     environment:
       VITE_API_BASE_URL: http://localhost:8000
-      VITE_API_AUTH_TOKEN: ${API_AUTH_TOKEN:-dev-demo-token-change-me}
+      VITE_API_AUTH_TOKEN: ${API_AUTH_TOKEN:?Set API_AUTH_TOKEN in your environment or .env before starting compose}
       VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS:-240000}
     depends_on:
       - backend
 
 volumes:
-  backend_pip_cache:
-  frontend_node_modules:
+  backend_uploads:
+  backend_processed:
+

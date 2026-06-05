@@ -310,7 +310,7 @@ With `.env.example` or no custom LLM configuration, Docker Compose starts the ba
 
 ```env
 API_AUTH_ENABLED=true
-API_AUTH_TOKEN=dev-demo-token-change-me
+API_AUTH_TOKEN=<set-a-local-development-token>
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 CORS_ALLOW_CREDENTIALS=false
 CORS_METHODS=GET,POST
@@ -348,11 +348,11 @@ No LLM API key is required for the demo. The reviewer can select a Luxembourg de
 Local API routes are protected by a simple API key gate. The default demo token is intentionally non-secret and exists only so the repo runs out of the box:
 
 ```powershell
-$headers = @{ "X-API-Key" = "dev-demo-token-change-me" }
+$headers = @{ "X-API-Key" = "<your-local-api-token>" }
 Invoke-RestMethod http://127.0.0.1:8000/api/sites -Headers $headers
 ```
 
-Set `API_AUTH_TOKEN` to your own local value before sharing or deploying the app. `/health` remains public for liveness checks. Source file links use the same token as a query parameter because browsers cannot attach custom headers to direct PDF/file links.
+Set `API_AUTH_TOKEN` to your own local value before sharing or deploying the app. `/health` remains public for liveness checks. The frontend fetches source files with the `X-API-Key` header and opens them as local blob URLs, so tokens are not placed in download query strings.
 
 Use this framing when presenting the demo: the product is exercising retrieval, evidence normalization, validation, storage, and the full dossier UI; the generated narrative is deterministic demo output so the workflow is reliable without external credentials. Real LLM generation is available by disabling mock mode and setting the LLM environment variables below.
 

@@ -227,7 +227,7 @@ def get_dossier(dossier_id: str) -> Dossier:
 
 def build_generate_cache_signature(*, request: DossierGenerateRequest, commune: str) -> dict:
     return {
-        "cache_version": 3,
+        "cache_version": 4,
         "site_id": request.site_id,
         "commune": commune,
         "query": request.query or None,

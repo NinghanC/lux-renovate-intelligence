@@ -37,8 +37,8 @@ Use only the provided site context, taxonomy, and evidence. Do not use outside f
 Do not make final structural safety, fire safety, legal, planning-compliance, ITM, SNSFP, AEV, environmental, asbestos, pollutant, HVAC, energy, or occupancy decisions.
 Return only one valid JSON object matching the requested schema. Do not wrap it in Markdown. Every finding and checklist item must cite evidence_refs.
 All human-facing narrative fields must be written in English. Keep IDs, enum values, source names, page numbers, and evidence IDs unchanged.
-The readiness matrix status and evidence_refs are rule-derived and locked.
-Do not change readiness_matrix category_id, label, status, or evidence_refs.
+The readiness matrix status, phase, criticality, and evidence_refs are rule-derived and locked.
+Do not change readiness_matrix category_id, label, status, phase, criticality, or evidence_refs.
 Only write human-readable summaries, next actions, findings, expert-validation items, mission checklist items, and limitations."""
 
 
@@ -67,6 +67,8 @@ def build_user_prompt(
                 "category_id": "copy exactly from readiness_matrix_locked",
                 "label": "copy exactly from readiness_matrix_locked",
                 "status": "copy exactly from readiness_matrix_locked",
+                "phase": "copy exactly from readiness_matrix_locked",
+                "criticality": "copy exactly from readiness_matrix_locked",
                 "summary": "string",
                 "evidence_refs": "copy exactly from readiness_matrix_locked",
                 "recommended_next_action": "string",
@@ -131,7 +133,7 @@ def build_user_prompt(
             "required_schema": schema_hint,
             "requirements": [
                 "Copy every readiness_matrix_locked item into readiness_matrix exactly once.",
-                "Do not change readiness_matrix category_id, label, status, or evidence_refs.",
+                "Do not change readiness_matrix category_id, label, status, phase, criticality, or evidence_refs.",
                 "Use readiness_matrix_locked status_reason to write each readiness_matrix summary.",
                 "Use readiness_matrix_locked recommended_next_action_seed to write each readiness_matrix recommended_next_action.",
                 "For missing categories, recommended_next_action must be specific and non-empty.",
@@ -234,7 +236,7 @@ class DossierGenerator:
             rule_matrix=rule_matrix,
             source_registry=self.source_registry,
         )
-        review_result = self.semantic_reviewer.review(
+        review_result = await self.semantic_reviewer.review_async(
             site_context=site_context,
             dossier=dossier,
             evidence=dossier.evidence,

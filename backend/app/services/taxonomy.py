@@ -33,7 +33,6 @@ DEFAULT_TAXONOMY = [
     },
     {
         "category_id": "fire_safety_documentation",
-        "label": "Fire safety documentation",
         "label": "Fire, safety, and accessibility documentation",
         "description": "Fire strategy, evacuation, compartmentation, accessibility, and safety documentation.",
     },

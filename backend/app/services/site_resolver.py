@@ -1,3 +1,6 @@
+from functools import lru_cache
+from pathlib import Path
+
 from app.core.paths import SAMPLE_DIR
 from app.models.schemas import DataQuality, DemoSite, SiteContext
 from app.services.json_store import read_json
@@ -19,7 +22,7 @@ class SiteResolver:
     def list_sites(self) -> list[DemoSite]:
         if not self.path.exists():
             return []
-        data = read_json(self.path)
+        data = _read_json_cached(self.path)
         return [DemoSite.model_validate(item) for item in data]
 
     def get_site(self, site_id: str) -> DemoSite:
@@ -57,5 +60,16 @@ class SiteResolver:
     def _get_geospatial_context(self, site_id: str) -> dict:
         if not self.geospatial_path.exists():
             return {}
-        data = read_json(self.geospatial_path)
+        data = _read_json_cached(self.geospatial_path)
         return data.get(site_id, {})
+
+
+@lru_cache(maxsize=16)
+def _read_json_cached_by_signature(path: str, mtime_ns: int, size: int):
+    del mtime_ns, size
+    return read_json(Path(path))
+
+
+def _read_json_cached(path: Path):
+    stat = path.stat()
+    return _read_json_cached_by_signature(str(path), stat.st_mtime_ns, stat.st_size)

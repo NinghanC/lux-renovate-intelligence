@@ -95,8 +95,6 @@ def _semantic_review_base_url() -> str:
 
 
 def _api_auth_token() -> str | None:
-    if "API_AUTH_TOKEN" not in os.environ:
-        return "dev-demo-token-change-me"
     return os.getenv("API_AUTH_TOKEN") or None
 
 
@@ -178,7 +176,7 @@ class Settings:
     cors_allow_credentials: bool = _env_flag("CORS_ALLOW_CREDENTIALS", "false")
     cors_methods: tuple[str, ...] = tuple(
         item.strip().upper()
-        for item in os.getenv("CORS_METHODS", "GET,POST").split(",")
+        for item in os.getenv("CORS_METHODS", "GET,POST,PATCH,DELETE").split(",")
         if item.strip()
     )
     cors_headers: tuple[str, ...] = tuple(

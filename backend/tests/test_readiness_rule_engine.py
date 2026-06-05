@@ -75,6 +75,8 @@ def test_uploaded_drawing_makes_existing_drawings_partial():
     matrix = matrix_by_category([evidence_item("ev_drawing", source_subtype="drawing_or_plan")])
 
     assert matrix["existing_drawings"].status == "partial"
+    assert matrix["existing_drawings"].phase == "Required documents"
+    assert matrix["existing_drawings"].criticality == "critical"
     assert matrix["existing_drawings"].evidence_refs == ["ev_drawing"]
 
 
