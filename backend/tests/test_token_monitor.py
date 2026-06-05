@@ -1,3 +1,6 @@
+from datetime import timezone
+
+from app.models.usage import TokenUsage
 from app.services.token_monitor import build_mock_usage, build_real_usage, estimate_tokens, parse_provider_usage
 
 
@@ -66,3 +69,10 @@ def test_mock_usage_reports_zero_external_tokens():
     assert usage.total_tokens_estimated == 0
     assert usage.total_tokens_reported is None
     assert usage.usage_source == "mock"
+
+
+def test_token_usage_default_timestamp_is_timezone_aware_utc():
+    usage = TokenUsage(generation_mode="mock", llm_provider="mock")
+
+    assert usage.created_at.tzinfo is not None
+    assert usage.created_at.utcoffset() == timezone.utc.utcoffset(usage.created_at)

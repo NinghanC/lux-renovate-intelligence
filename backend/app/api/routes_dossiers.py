@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from app.models.schemas import Dossier, DossierGenerateRequest, DossierGenerateResponse
 from app.core.config import settings
@@ -48,7 +49,11 @@ PURPOSE_QUERIES = {
 
 
 @router.post("/generate", response_model=DossierGenerateResponse)
-def generate_dossier(request: DossierGenerateRequest) -> DossierGenerateResponse:
+async def generate_dossier(request: DossierGenerateRequest) -> DossierGenerateResponse:
+    return await run_in_threadpool(_generate_dossier_sync, request)
+
+
+def _generate_dossier_sync(request: DossierGenerateRequest) -> DossierGenerateResponse:
     try:
         site_context = resolver.build_context(request.site_id)
         cache_signature = build_generate_cache_signature(

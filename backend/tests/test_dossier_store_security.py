@@ -1,4 +1,7 @@
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
+import json
+import time
 
 import pytest
 
@@ -110,3 +113,35 @@ def test_cache_load_ignores_malicious_index_dossier_id(isolated_dossier_dir):
     )
 
     assert load_cached_dossier(cache_key) is None
+
+
+def test_cache_index_updates_are_serialized(isolated_dossier_dir, monkeypatch):
+    original_read_cache_index = dossier_store._read_cache_index
+    active_readers = 0
+    max_active_readers = 0
+
+    def slow_read_cache_index():
+        nonlocal active_readers, max_active_readers
+        active_readers += 1
+        max_active_readers = max(max_active_readers, active_readers)
+        time.sleep(0.01)
+        try:
+            return original_read_cache_index()
+        finally:
+            active_readers -= 1
+
+    monkeypatch.setattr(dossier_store, "_read_cache_index", slow_read_cache_index)
+    dossiers = [minimal_dossier(f"dos_test_{index}") for index in range(8)]
+    keys = [cache_key_for_signature({"site_id": dossier.dossier_id}) for dossier in dossiers]
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(
+            executor.map(
+                lambda pair: save_dossier_cache(pair[0], pair[1], {"site_id": pair[1].dossier_id}),
+                zip(keys, dossiers),
+            )
+        )
+
+    index = json.loads((isolated_dossier_dir / "cache_index.json").read_text(encoding="utf-8"))
+    assert set(keys) <= set(index)
+    assert max_active_readers == 1

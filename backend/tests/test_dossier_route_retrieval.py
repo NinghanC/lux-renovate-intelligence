@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import inspect
 
 from fastapi.testclient import TestClient
 
@@ -100,6 +101,10 @@ def test_generate_without_query_uses_purpose_based_retrieval(monkeypatch):
     assert dummy_retriever.used_purposes
     assert not dummy_retriever.used_query
     assert response.json()["cache_hit"] is False
+
+
+def test_generate_route_offloads_sync_work_from_event_loop():
+    assert inspect.iscoroutinefunction(routes_dossiers.generate_dossier)
 
 
 def test_generate_uses_cached_dossier_when_signature_matches(monkeypatch):

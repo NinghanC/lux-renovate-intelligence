@@ -1,6 +1,7 @@
 import hashlib
 import json
 import re
+import threading
 from pathlib import Path
 
 from app.core.paths import DOSSIERS_DIR
@@ -10,6 +11,7 @@ from app.models.schemas import Dossier
 DOSSIER_CACHE_INDEX_PATH = DOSSIERS_DIR / "cache_index.json"
 DOSSIER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 CACHE_KEY_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+_CACHE_INDEX_LOCK = threading.RLock()
 
 
 class DossierNotFoundError(ValueError):
@@ -46,7 +48,8 @@ def cache_key_for_signature(signature: dict) -> str:
 def load_cached_dossier(cache_key: str) -> Dossier | None:
     if not _valid_cache_key(cache_key):
         return None
-    index = _read_cache_index()
+    with _CACHE_INDEX_LOCK:
+        index = _read_cache_index()
     dossier_id = index.get(cache_key, {}).get("dossier_id")
     if not dossier_id:
         return None
@@ -59,13 +62,14 @@ def load_cached_dossier(cache_key: str) -> Dossier | None:
 def save_dossier_cache(cache_key: str, dossier: Dossier, signature: dict) -> None:
     if not _valid_cache_key(cache_key):
         raise ValueError("Invalid dossier cache key.")
-    index = _read_cache_index()
-    index[cache_key] = {
-        "dossier_id": dossier.dossier_id,
-        "signature": signature,
-    }
-    DOSSIERS_DIR.mkdir(parents=True, exist_ok=True)
-    DOSSIER_CACHE_INDEX_PATH.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
+    with _CACHE_INDEX_LOCK:
+        index = _read_cache_index()
+        index[cache_key] = {
+            "dossier_id": dossier.dossier_id,
+            "signature": signature,
+        }
+        DOSSIERS_DIR.mkdir(parents=True, exist_ok=True)
+        _write_cache_index(index)
 
 
 def _read_cache_index() -> dict:
@@ -75,6 +79,12 @@ def _read_cache_index() -> dict:
         return json.loads(DOSSIER_CACHE_INDEX_PATH.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def _write_cache_index(index: dict) -> None:
+    temporary_path = DOSSIER_CACHE_INDEX_PATH.with_suffix(".json.tmp")
+    temporary_path.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary_path.replace(DOSSIER_CACHE_INDEX_PATH)
 
 
 def _dossier_path(dossier_id: str) -> Path:

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -21,4 +21,4 @@ class TokenUsage(BaseModel):
     output_tokens_reported: int | None = None
     total_tokens_reported: int | None = None
     usage_source: UsageSource = "estimated"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

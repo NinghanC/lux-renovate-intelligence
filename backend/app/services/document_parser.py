@@ -25,19 +25,19 @@ def normalize_text(text: str) -> str:
 
 
 def parse_pdf(path: Path, ocr_provider: OCRProvider | None = None) -> list[PageText]:
-    doc = fitz.open(path)
     ocr = ocr_provider or OCRProvider()
     pages: list[PageText] = []
-    for page_index, page in enumerate(doc, start=1):
-        text = normalize_text(page.get_text("text"))
-        parser = "pymupdf"
-        if len(text) < settings.ocr_min_text_chars and ocr.configured:
-            ocr_text = normalize_text(ocr.extract_text_from_png(render_page_png(page)))
-            if len(ocr_text) > len(text):
-                text = ocr_text
-                parser = settings.ocr_model or "ocr"
-        if text:
-            pages.append(PageText(page=page_index, text=text, parser=parser))
+    with fitz.open(path) as doc:
+        for page_index, page in enumerate(doc, start=1):
+            text = normalize_text(page.get_text("text"))
+            parser = "pymupdf"
+            if len(text) < settings.ocr_min_text_chars and ocr.configured:
+                ocr_text = normalize_text(ocr.extract_text_from_png(render_page_png(page)))
+                if len(ocr_text) > len(text):
+                    text = ocr_text
+                    parser = settings.ocr_model or "ocr"
+            if text:
+                pages.append(PageText(page=page_index, text=text, parser=parser))
     return pages
 
 
@@ -62,6 +62,13 @@ def render_page_png(page: fitz.Page) -> bytes:
 
 
 def split_text(text: str, max_chars: int = 1200, overlap_chars: int = 150) -> list[str]:
+    if max_chars <= 0:
+        raise ValueError("max_chars must be greater than zero.")
+    if overlap_chars < 0:
+        raise ValueError("overlap_chars must be zero or greater.")
+    if overlap_chars >= max_chars:
+        raise ValueError("overlap_chars must be smaller than max_chars.")
+
     paragraphs = [item.strip() for item in re.split(r"\n\s*\n", text) if item.strip()]
     chunks: list[str] = []
     current = ""
