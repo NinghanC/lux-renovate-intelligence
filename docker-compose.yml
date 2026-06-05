@@ -16,8 +16,13 @@ services:
       PYTHONUNBUFFERED: "1"
       PYTHONPATH: /app/backend
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-      LLM_PROVIDER: mock
-      LLM_MOCK_MODE: "true"
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_MOCK_MODE: ${LLM_MOCK_MODE:-true}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_RESPONSE_FORMAT: ${LLM_RESPONSE_FORMAT:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-180}
     healthcheck:
       test:
         [
