@@ -29,17 +29,17 @@ from app.services.semantic_reviewer import SemanticReviewer, create_semantic_rev
 from app.services.source_registry import SourceRegistry
 
 
-PROMPT_VERSION = "2026-06-05.rule-matrix-missing-evidence-v1"
+PROMPT_VERSION = "2026-06-05.mission-readiness-prompt-v1"
 
 
-SYSTEM_PROMPT = """You are a bounded renovation-readiness assistant for SECO-style engineering preparation.
+SYSTEM_PROMPT = """You are a bounded mission-readiness assistant for technical-control, environmental, HVAC, commissioning, survey, safety, and expertise mission preparation in Luxembourg.
 Use only the provided site context, taxonomy, and evidence. Do not use outside facts.
-Do not make final structural safety, fire safety, legal, planning-compliance, energy, or occupancy decisions.
+Do not make final structural safety, fire safety, legal, planning-compliance, ITM, SNSFP, AEV, environmental, asbestos, pollutant, HVAC, energy, or occupancy decisions.
 Return only one valid JSON object matching the requested schema. Do not wrap it in Markdown. Every finding and checklist item must cite evidence_refs.
 All human-facing narrative fields must be written in English. Keep IDs, enum values, source names, page numbers, and evidence IDs unchanged.
 The readiness matrix status and evidence_refs are rule-derived and locked.
 Do not change readiness_matrix category_id, label, status, or evidence_refs.
-Only write human-readable summaries, next actions, findings, risk signals, checklist items, and limitations."""
+Only write human-readable summaries, next actions, findings, expert-validation items, mission checklist items, and limitations."""
 
 
 def build_user_prompt(
@@ -85,7 +85,7 @@ def build_user_prompt(
             {
                 "signal_id": "signal_001",
                 "title": "string",
-                "description": "uncertainty requiring human review, not a final judgement",
+                "description": "uncertainty requiring expert validation, not a final judgement",
                 "evidence_refs": ["ev_..."],
                 "priority": "high | medium | low",
             }
@@ -135,8 +135,11 @@ def build_user_prompt(
                 "Use readiness_matrix_locked status_reason to write each readiness_matrix summary.",
                 "Use readiness_matrix_locked recommended_next_action_seed to write each readiness_matrix recommended_next_action.",
                 "For missing categories, recommended_next_action must be specific and non-empty.",
-                "Do not claim the building is safe, compliant, approved, or free of risk.",
-                "Make inspection_checklist useful for old-building renovation preparation.",
+                "Do not claim the building, establishment, system, material condition, authorization, or site is safe, compliant, approved, authorized, asbestos-free, pollutant-free, or free of risk.",
+                "Missing asbestos or pollutant documentation means documentation is missing. It does not mean asbestos or pollutants are absent.",
+                "Missing environmental authorization evidence means the case file is incomplete. It does not mean the establishment is non-compliant.",
+                "Missing HVAC, commissioning, maintenance, survey, fire, or structural evidence means expert validation is required. It does not mean a defect or unsafe condition exists.",
+                "Make inspection_checklist useful for technical-control, environmental, HVAC, commissioning, survey, safety, or expertise mission preparation.",
                 "Return at least 5 inspection_checklist items.",
                 "Each inspection_checklist item must cite at least one evidence_ref.",
                 "Each planning_finding and technical_risk_signal item must cite at least one evidence_ref.",
@@ -271,7 +274,7 @@ def build_validated_dossier(
     coverage = calculate_coverage(draft.readiness_matrix)
     public_context = (
         f"{site_context.commune} demo context with {len(evidence)} retrieved evidence item(s). "
-        "The dossier is evidence-backed and does not represent a final engineering decision."
+        "The dossier is evidence-backed and does not represent a final engineering, compliance, safety, environmental, or authorization decision."
     )
     dossier = Dossier(
         dossier_id=f"dos_{uuid4().hex[:12]}",
@@ -372,14 +375,21 @@ def build_missing_information_evidence_for_items(
     source_evidence: list[EvidenceObject],
 ) -> list[EvidenceObject]:
     known_refs = {item.evidence_id for item in source_evidence}
+    known_missing_categories = {
+        str(item.metadata.get("category_id"))
+        for item in source_evidence
+        if item.evidence_type == EvidenceType.derived_missing_information and item.metadata.get("category_id")
+    }
     derived: list[EvidenceObject] = []
     for index, item in enumerate(missing_items, start=1):
+        if item.category_id in known_missing_categories:
+            continue
         evidence_id = f"ev_missing_{item.item_id or index}"
         if evidence_id in known_refs:
             continue
         supporting_refs = [ref for ref in item.evidence_refs if ref in known_refs and ref != evidence_id]
         content = (
-            f"Missing information evidence for category '{item.category_id}': {item.description} "
+            f"Missing mission-critical information evidence for category '{item.category_id}': {item.description} "
             f"Recommended next action: {item.recommended_next_action}"
         )
         derived.append(
@@ -392,7 +402,7 @@ def build_missing_information_evidence_for_items(
                 modality="derived_text",
                 authority_level="system_derived",
                 evidence_role="missing_information",
-                source_name="Missing information evidence",
+                source_name="Missing mission-critical information evidence",
                 content=content,
                 supports=[item.category_id],
                 metadata={

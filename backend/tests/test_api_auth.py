@@ -15,7 +15,7 @@ def test_health_is_public():
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "app": "LuxRenovate Intelligence",
+        "app": "Building Mission Readiness Intelligence",
     }
 
 

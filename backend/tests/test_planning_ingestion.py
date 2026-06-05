@@ -60,7 +60,7 @@ def test_planning_cache_skips_second_pdf_parse(tmp_path, monkeypatch):
 
     def fake_parse(path: Path) -> list[PageText]:
         parse_calls.append(path)
-        return [PageText(page=1, text="Planning constraints for renovation.")]
+        return [PageText(page=1, text="Planning constraints for mission preparation.")]
 
     monkeypatch.setattr(planning_ingestion, "RAW_PLANNING_DIR", raw_planning)
     monkeypatch.setattr(planning_ingestion, "PLANNING_CACHE_DIR", cache_dir)
@@ -103,7 +103,7 @@ def test_planning_cache_ignores_corrupt_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr(
         planning_ingestion,
         "parse_document",
-        lambda path: [PageText(page=1, text="Planning constraints for renovation.")],
+        lambda path: [PageText(page=1, text="Planning constraints for mission preparation.")],
     )
 
     chunks = PlanningIngestionService(sources_path=sources_path).load_planning_chunks_for_commune("Testville")

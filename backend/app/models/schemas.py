@@ -129,6 +129,8 @@ class SourceRecordPublic(BaseModel):
 
 class EvidenceLocator(BaseModel):
     page: int | None = None
+    line_start: int | None = None
+    line_end: int | None = None
     chunk_id: str | None = None
 
 

@@ -93,6 +93,27 @@ def split_text(text: str, max_chars: int = 1200, overlap_chars: int = 150) -> li
     return chunks
 
 
+def line_range_for_chunk(chunk: str, page_text: str, start_line_index: int = 0) -> tuple[int | None, int | None, int]:
+    lines = page_text.splitlines() or [page_text]
+    normalized_chunk = _normalize_for_line_match(chunk)
+    if not normalized_chunk:
+        return None, None, start_line_index
+    for line_index in range(min(start_line_index, len(lines) - 1), len(lines)):
+        combined = ""
+        for end_index in range(line_index, len(lines)):
+            combined = f"{combined} {lines[end_index]}".strip()
+            normalized_combined = _normalize_for_line_match(combined)
+            if normalized_chunk in normalized_combined:
+                return line_index + 1, end_index + 1, end_index
+            if len(normalized_combined) > len(normalized_chunk) + 240:
+                break
+    return None, None, start_line_index
+
+
+def _normalize_for_line_match(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
 def chunk_document(
     *,
     document_id: str,
@@ -108,7 +129,9 @@ def chunk_document(
     chunks: list[PlanningChunk] = []
     resolved_source_id = source_id or f"src_{document_id}"
     for page in pages:
+        next_line_index = 0
         for chunk_index, text in enumerate(split_text(page.text, max_chars=max_chars), start=1):
+            line_start, line_end, next_line_index = line_range_for_chunk(text, page.text, next_line_index)
             chunk_id = f"{document_id}_p{page.page:03d}_c{chunk_index:03d}"
             chunks.append(
                 PlanningChunk(
@@ -122,7 +145,13 @@ def chunk_document(
                     text=text,
                     source_path=str(source_path),
                     source_url=source_url,
-                    metadata={"parser": page.parser, "source_id": resolved_source_id, "max_chars": max_chars},
+                    metadata={
+                        "parser": page.parser,
+                        "source_id": resolved_source_id,
+                        "max_chars": max_chars,
+                        "line_start": line_start,
+                        "line_end": line_end,
+                    },
                 )
             )
     return chunks

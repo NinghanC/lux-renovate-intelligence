@@ -19,7 +19,7 @@
         "no structural risk",
         "structurally sound",
         "safe for occupancy",
-        "approved for renovation"
+        "approved for operation"
       ],
       "allowed_meanings_any": [
         "structural drawings",
@@ -29,12 +29,12 @@
         "structural assessment",
         "cannot be assessed",
         "cannot be verified",
-        "human review"
+        "expert review"
       ]
     },
     "required_limitations": [
       "not a final engineering assessment",
-      "human review"
+      "expert review"
     ]
   }
 }

@@ -15,7 +15,7 @@ ensure_runtime_dirs()
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
-    description="Evidence-backed renovation readiness assistant MVP for SECO-style take-home challenge.",
+    description="Evidence-backed mission readiness assistant MVP for technical-control and expert mission preparation.",
 )
 
 app.add_middleware(

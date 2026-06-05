@@ -14,12 +14,119 @@ UPLOAD_SUBTYPES: set[str] = {
     "energy_certificate_or_audit",
     "fire_safety_dossier",
     "hazardous_material_survey",
+    "environmental_authorization",
+    "classified_establishment_document",
+    "asbestos_pollutant_document",
+    "commissioning_report",
+    "hvac_mep_document",
+    "comfort_energy_document",
+    "survey_scan_document",
+    "expertise_claim_document",
     "owner_note",
     "photo_or_image_note",
     "unknown_upload",
 }
 
 UPLOAD_SUBTYPE_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    (
+        "environmental_authorization",
+        (
+            "commodo",
+            "incommodo",
+            "autorisation d'exploitation",
+            "operating authorization",
+            "environmental authorization",
+            "administration de l'environnement",
+            "aev",
+        ),
+    ),
+    (
+        "classified_establishment_document",
+        (
+            "etablissement classe",
+            "classified establishment",
+            "classement",
+            "conditions d'exploitation",
+            "exploitation permit",
+            "permit conditions",
+        ),
+    ),
+    (
+        "asbestos_pollutant_document",
+        (
+            "amiante",
+            "asbestos",
+            "desamiantage",
+            "polluant",
+            "pollutant",
+            "hazardous material",
+            "lead paint",
+        ),
+    ),
+    (
+        "commissioning_report",
+        (
+            "commissioning",
+            "mise en service",
+            "reception technique",
+            "commissioning report",
+            "functional test",
+        ),
+    ),
+    (
+        "hvac_mep_document",
+        (
+            "hvac",
+            "mep",
+            "chauffage",
+            "refroidissement",
+            "ventilation",
+            "sanitaire",
+            "electricite",
+            "electrical",
+            "eaux pluviales",
+            "rainwater",
+        ),
+    ),
+    (
+        "comfort_energy_document",
+        (
+            "blowerdoor",
+            "blower door",
+            "etancheite a l'air",
+            "air tightness",
+            "comfort",
+            "confort",
+            "energy performance",
+            "performance energetique",
+        ),
+    ),
+    (
+        "survey_scan_document",
+        (
+            "scan 3d",
+            "3d scan",
+            "leve",
+            "survey",
+            "measurement",
+            "mesure",
+            "cadastre",
+            "geometre",
+        ),
+    ),
+    (
+        "expertise_claim_document",
+        (
+            "litige",
+            "desaccord",
+            "malfacon",
+            "sinistre",
+            "claim",
+            "defect",
+            "damage",
+            "expertise",
+        ),
+    ),
     ("drawing_or_plan", ("drawing", "plan", "layout", "as-built", "as built", "floor plan", "blueprint")),
     ("inspection_report", ("inspection", "survey", "engineer", "technical report", "assessment")),
     ("energy_certificate_or_audit", ("energy", "performance", "epc", "certificate", "audit", "efficiency")),
@@ -95,11 +202,19 @@ def evidence_role_for_document_type(document_type: str, source_subtype: str | No
             return "building_record"
         if source_subtype == "maintenance_record":
             return "maintenance_context"
-        if source_subtype == "energy_certificate_or_audit":
+        if source_subtype in {"energy_certificate_or_audit", "comfort_energy_document"}:
             return "energy_context"
         if source_subtype == "fire_safety_dossier":
             return "fire_safety_context"
-        if source_subtype == "hazardous_material_survey":
+        if source_subtype in {"hazardous_material_survey", "asbestos_pollutant_document"}:
             return "hazardous_material_context"
+        if source_subtype in {"commissioning_report", "hvac_mep_document"}:
+            return "maintenance_context"
+        if source_subtype in {"environmental_authorization", "classified_establishment_document"}:
+            return "planning_context"
+        if source_subtype == "survey_scan_document":
+            return "building_record"
+        if source_subtype == "expertise_claim_document":
+            return "condition_observation"
         return "uploaded_context"
     return "document_context"

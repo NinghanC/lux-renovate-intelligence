@@ -35,7 +35,7 @@ Hard failures include:
 - locked matrix status or evidence refs changed
 - available or partial matrix items without evidence refs
 - coverage score inconsistent with the matrix
-- ungrounded planning findings, risk signals, or checklist items
+- ungrounded public-context findings, expert-validation items, or checklist items
 - forbidden final engineering/legal claims
 - incomplete taxonomy
 - incomplete derived missing-information evidence coverage
@@ -50,7 +50,7 @@ The optional second-LLM semantic reviewer is disabled during the default mock ev
 
 Semantic cases live in `data/evaluation/semantic_cases/`.
 
-The first semantic regression checks that missing structural documentation is not converted into a risk or approval claim. Missing evidence may support wording such as requesting structural drawings or a survey. It must not become a statement that the building is unsafe, structurally sound, approved, or safe for occupancy.
+The first semantic regression checks that missing structural documentation is not converted into a risk or approval claim. Missing evidence may support wording such as requesting structural drawings, survey data, or expert validation. It must not become a statement that the building is unsafe, structurally sound, approved, or safe for occupancy.
 
 The semantic layer starts with conservative phrase checks. The optional semantic reviewer can add report-only LLM review notes for overclaiming, unsupported interpretations, grounding issues, and absence-of-evidence-to-risk mistakes. It should be manually reviewed, not treated as an authoritative CI gate.
 

@@ -15,15 +15,15 @@ from app.services.retry_policy import post_with_retries
 from app.services.token_monitor import build_real_usage
 
 
-SEMANTIC_REVIEW_VERSION = "2026-06-05.semantic-reviewer-v1"
+SEMANTIC_REVIEW_VERSION = "2026-06-05.mission-semantic-reviewer-v1"
 logger = logging.getLogger(__name__)
 
 
-REVIEW_SYSTEM_PROMPT = """You are a report-only semantic reviewer for renovation-readiness dossiers.
+REVIEW_SYSTEM_PROMPT = """You are a report-only semantic reviewer for mission-readiness dossiers.
 You are not the generator, not an engineer of record, and not an authority.
 Return only one valid JSON object matching the requested schema.
 Review whether the dossier overclaims, converts missing evidence into risk conclusions, or uses unsupported interpretations.
-Do not rewrite the dossier. Do not approve or reject engineering, safety, legal, planning, energy, or occupancy status.
+Do not rewrite the dossier. Do not approve or reject engineering, safety, legal, planning, environmental, asbestos, HVAC, ITM, SNSFP, AEV, energy, or occupancy status.
 Use English only. Avoid quoting prohibited phrases verbatim; describe them generically instead."""
 
 
@@ -203,9 +203,12 @@ def build_review_prompt(
             "evidence": compact_evidence,
             "required_schema": schema_hint,
             "semantic_rules": [
-                "Flag overclaiming when the dossier treats limited evidence as a final engineering, safety, legal, planning, energy, or occupancy conclusion.",
+                "Flag overclaiming when the dossier treats limited evidence as a final engineering, safety, legal, planning, environmental, asbestos, HVAC, ITM, SNSFP, AEV, energy, or occupancy conclusion.",
                 "Flag absence_to_risk_violation when missing documentation is presented as proof of a real defect or real hazard.",
-                "Flag unsupported_claims when a finding, checklist item, risk signal, or summary has no plausible support in cited evidence.",
+                "Flag absence_to_risk_violation when missing asbestos or pollutant inventory is presented as proof that asbestos or pollutants are absent.",
+                "Flag absence_to_risk_violation when missing environmental authorization evidence is presented as proof of non-compliance.",
+                "Flag absence_to_risk_violation when missing HVAC, commissioning, survey, fire, or structural documentation is presented as proof of a defect or unsafe condition.",
+                "Flag unsupported_claims when a finding, checklist item, expert-validation item, or summary has no plausible support in cited evidence.",
                 "Checklist items may cite missing-information evidence when they are framed as requests to collect or verify documents.",
                 "Warnings are report-only and must not rewrite dossier content.",
             ],

@@ -2,7 +2,7 @@
   "case_id": "demo_lux_custom_query",
   "inputs": {
     "site_id": "demo_lux_laangfur_001",
-    "query": "planning constraints renovation permits",
+    "query": "planning constraints mission authorization documents",
     "uploaded_documents": [],
     "generation_mode": "mock",
     "include_uploaded_documents": false,

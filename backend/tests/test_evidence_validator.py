@@ -10,6 +10,7 @@ from app.models.schemas import (
     SourceRecord,
 )
 from app.services.dossier_generator import build_missing_information_evidence
+from app.services.dossier_generator import ensure_rule_missing_evidence_available
 from app.services.dossier_generator import normalize_draft_evidence_refs
 from app.services.evidence_validator import (
     ValidationFailure,
@@ -60,12 +61,12 @@ def matrix_items(refs=None) -> list[ReadinessMatrixItem]:
     ]
 
 
-def draft(refs=None, summary="Evidence is limited and needs human review.") -> DossierDraft:
+def draft(refs=None, summary="Evidence is limited and needs expert review.") -> DossierDraft:
     checklist = [
         ChecklistItem(
             item_id=f"check_{index}",
-            task="Verify renovation preparation evidence on site.",
-            reason="The MVP requires human verification of retrieved evidence and missing records.",
+            task="Verify mission preparation evidence on site.",
+            reason="The MVP requires expert verification of retrieved evidence and missing records.",
             evidence_refs=[],
             priority="medium",
         )
@@ -149,7 +150,35 @@ def test_missing_information_items_become_derived_evidence():
 
     assert generated
     assert generated[0].evidence_type == EvidenceType.derived_missing_information
-    assert generated[0].source_name == "Missing information evidence"
+    assert generated[0].source_name == "Missing mission-critical information evidence"
+
+
+def test_missing_information_evidence_is_not_duplicated_when_rule_seed_exists():
+    dossier_draft = draft()
+    rule_matrix = [
+        RuleMatrixItem(
+            category_id="structural_documentation",
+            label="Structural documentation",
+            status="missing",
+            evidence_refs=[],
+            status_reason="No verified case-file evidence was retrieved for this mission readiness category.",
+            recommended_next_action_seed="Request structural drawings.",
+        )
+    ]
+    seeded_evidence = ensure_rule_missing_evidence_available(evidence(), rule_matrix)
+    dossier_draft.missing_information_checklist = [
+        MissingInformationItem(
+            item_id="missing_001",
+            category_id="structural_documentation",
+            description="Structural documentation was not found in retrieved evidence.",
+            evidence_refs=["ev_missing_missing_rule_001"],
+            recommended_next_action="Request structural drawings.",
+        )
+    ]
+
+    generated = build_missing_information_evidence(dossier_draft, seeded_evidence)
+
+    assert generated == []
 
 
 def test_chunk_refs_are_normalized_to_evidence_ids():
@@ -185,8 +214,44 @@ def test_rule_derived_matrix_status_cannot_be_changed():
         "The building is structurally safe.",
         "The project is fire-safety compliant.",
         "The site is legally compliant.",
+        "The establishment is ITM compliant.",
+        "The building is asbestos-free.",
+        "No asbestos present.",
+        "No pollutants detected.",
+        "No further inspection required.",
     ],
 )
 def test_forbidden_final_claims_are_rejected(claim: str):
+    with pytest.raises(ValidationFailure):
+        validate_forbidden_claims(draft(summary=claim))
+
+
+@pytest.mark.parametrize(
+    "allowed",
+    [
+        "No asbestos inventory was found in the current case file.",
+        "No asbestos documentation is available in retrieved evidence.",
+        "No pollutants inventory was found; request accredited expert validation.",
+        "No safe for occupancy certificate was found in the current case file.",
+        "No approved for operation document is available in retrieved evidence.",
+        "No authorized for operation record was retrieved.",
+        "No structural risk assessment was found; request expert review.",
+        "No further inspection required statement was found in the case file.",
+    ],
+)
+def test_missing_asbestos_or_pollutant_documentation_wording_is_allowed(allowed: str):
+    validate_forbidden_claims(draft(summary=allowed))
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "Missing structural documentation proves no structural risk.",
+        "The case file is incomplete, but the building is safe for occupancy.",
+        "No approved for operation document was found, so the establishment is approved for operation.",
+        "No asbestos inventory was found, therefore no asbestos risk exists.",
+    ],
+)
+def test_missing_document_context_does_not_mask_final_claims(claim: str):
     with pytest.raises(ValidationFailure):
         validate_forbidden_claims(draft(summary=claim))

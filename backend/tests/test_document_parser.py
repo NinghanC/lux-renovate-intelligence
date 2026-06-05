@@ -20,7 +20,7 @@ def test_pdf_parser_and_chunker(tmp_path: Path):
     pdf_path = tmp_path / "sample.pdf"
     doc = fitz.open()
     page = doc.new_page()
-    page.insert_text((72, 72), "Planning evidence for a renovation dossier.\nFire documents are missing.")
+    page.insert_text((72, 72), "Planning evidence for a mission dossier.\nFire documents are missing.")
     doc.save(pdf_path)
     doc.close()
 
@@ -40,6 +40,8 @@ def test_pdf_parser_and_chunker(tmp_path: Path):
     assert chunks[0].document_id == "test_doc"
     assert chunks[0].page == 1
     assert "Planning evidence" in chunks[0].text
+    assert chunks[0].metadata["line_start"] == 1
+    assert chunks[0].metadata["line_end"] == 2
 
 
 def test_pdf_parser_uses_ocr_fallback_for_scanned_pages(tmp_path: Path):

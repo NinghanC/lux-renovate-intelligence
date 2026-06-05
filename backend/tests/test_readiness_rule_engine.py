@@ -1,4 +1,4 @@
-from app.models.schemas import Coordinates, DataQuality, EvidenceObject, EvidenceType, SiteContext
+from app.models.schemas import Coordinates, DataQuality, EvidenceLocator, EvidenceObject, EvidenceType, SiteContext
 from app.services.readiness_rule_engine import build_rule_matrix
 from app.services.taxonomy import load_taxonomy
 
@@ -25,14 +25,20 @@ def evidence_item(
     source_subtype: str | None = None,
     evidence_role: str | None = None,
     content: str = "Evidence content.",
+    source_name: str = "Evidence",
+    page: int | None = None,
+    line_start: int | None = None,
+    line_end: int | None = None,
 ) -> EvidenceObject:
     return EvidenceObject(
         evidence_id=evidence_id,
         evidence_type=EvidenceType.uploaded_document,
-        source_name="Evidence",
+        source_name=source_name,
         source_type=source_type,
         source_subtype=source_subtype,
         evidence_role=evidence_role,
+        page=page,
+        locator=EvidenceLocator(page=page, line_start=line_start, line_end=line_end),
         content=content,
     )
 
@@ -86,3 +92,22 @@ def test_owner_note_does_not_make_structural_documentation_available():
 
     assert matrix["structural_documentation"].status == "missing"
     assert matrix["structural_documentation"].evidence_refs == []
+
+
+def test_rule_matrix_deduplicates_same_logical_evidence_ref():
+    evidence = [
+        evidence_item(
+            f"ev_duplicate_{index}",
+            source_subtype="condition_observation",
+            source_name="sample_condition_observations.pdf",
+            page=2,
+            line_start=1,
+            line_end=13,
+            content="Roof and facade observations for the same uploaded chunk.",
+        )
+        for index in range(3)
+    ]
+
+    matrix = matrix_by_category(evidence)
+
+    assert matrix["building_envelope_roof"].evidence_refs == ["ev_duplicate_0"]

@@ -5,7 +5,7 @@
 1. Demo site selection loads a fixed `SiteContext`.
 2. The UI waits; it does not pre-retrieve evidence.
 3. When the user clicks Generate, planning chunks are loaded from a source-hash checked local cache when possible. Cache misses parse raw planning PDFs with PyMuPDF. Optional OCR can be configured for scanned PDFs, but the public demo does not require cloud OCR.
-4. Retrieval runs purpose-based queries for planning context, documentation gaps, technical risk, site inspection, and renovation constraints. Each query scores chunks with multilingual BM25 keyword relevance and optional embeddings.
+4. Retrieval runs purpose-based queries for public authorization context, documentation gaps, technical systems, expert validation, and mission preparation. Each query scores chunks with multilingual BM25 keyword relevance and optional embeddings.
 5. Optional rerank reranks the strongest retrieval candidates when configured. The public demo keeps rerank disabled and uses local keyword retrieval by default.
 6. Retrieved chunks become source-aware `EvidenceObject` records. Site profile and lightweight GeoJSON context are also added as low-risk context evidence.
 7. A deterministic readiness rule engine assigns matrix statuses and evidence references from the evidence objects before generation.
@@ -24,7 +24,7 @@
 - `RerankProvider`: optional managed rerank adapter; disabled in the public demo.
 - `MockLLMProvider`: deterministic demo generator for reviewer-friendly local runs without API keys.
 - `LLMProvider`: OpenAI-compatible chat completion adapter for externally configured model endpoints.
-- `ReadinessRuleEngine`: deterministic readiness-matrix status assignment and missing-information seeding.
+- `ReadinessRuleEngine`: deterministic mission-readiness matrix status assignment and missing-information seeding.
 - `DossierGenerator`: rule-matrix assembly, prompt assembly, LLM call, and dossier assembly.
 - `EvidenceValidator`: guardrails, source integrity checks, and reference checks.
 - `CoverageCalculator`: deterministic evidence-coverage metric based on matrix statuses.

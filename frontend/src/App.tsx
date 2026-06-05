@@ -11,7 +11,7 @@ import {
 } from "./api/client";
 import type { DemoSite, Dossier, EvidenceObject, GeoJsonFeature, SiteContext, SiteGeoJsonResponse } from "./types/dossier";
 
-type ViewKey = "matrix" | "gaps" | "checklist" | "evidence" | "limitations";
+type ViewKey = "documents" | "evidence" | "matrix" | "gaps" | "checklist" | "system";
 
 type DrawnMapPoint = {
   id: string;
@@ -21,11 +21,12 @@ type DrawnMapPoint = {
 };
 
 const views: Array<{ key: ViewKey; label: string }> = [
-  { key: "matrix", label: "Readiness Matrix" },
-  { key: "gaps", label: "Information Gaps" },
-  { key: "checklist", label: "Site Inspection" },
-  { key: "evidence", label: "Evidence Panel" },
-  { key: "limitations", label: "Limitations" }
+  { key: "documents", label: "Documents" },
+  { key: "evidence", label: "Evidence" },
+  { key: "matrix", label: "Mission Readiness" },
+  { key: "gaps", label: "Expert Validation" },
+  { key: "checklist", label: "Mission Checklist" },
+  { key: "system", label: "System" }
 ];
 
 const statusLabels: Record<string, string> = {
@@ -51,6 +52,14 @@ const uploadSubtypeOptions = [
   { value: "energy_certificate_or_audit", label: "Energy certificate or audit" },
   { value: "fire_safety_dossier", label: "Fire safety dossier" },
   { value: "hazardous_material_survey", label: "Hazardous material survey" },
+  { value: "environmental_authorization", label: "Environmental authorization" },
+  { value: "classified_establishment_document", label: "Classified establishment document" },
+  { value: "asbestos_pollutant_document", label: "Asbestos or pollutant document" },
+  { value: "commissioning_report", label: "Commissioning report" },
+  { value: "hvac_mep_document", label: "HVAC or MEP document" },
+  { value: "comfort_energy_document", label: "Comfort or energy document" },
+  { value: "survey_scan_document", label: "Survey or 3D scan document" },
+  { value: "expertise_claim_document", label: "Expertise, claim, or defect document" },
   { value: "owner_note", label: "Owner note" },
   { value: "photo_or_image_note", label: "Photo or scan note" }
 ];
@@ -78,7 +87,7 @@ function priorityLabel(value: string) {
 }
 
 function evidenceTypeLabel(type: string) {
-  if (type === "derived_missing_information") return "Missing information";
+  if (type === "derived_missing_information") return "Missing mission information";
   if (type === "site_profile") return "Site profile";
   if (type === "planning_document") return "Planning document";
   if (type === "uploaded_document") return "Uploaded document";
@@ -107,14 +116,30 @@ function evidenceSourceHref(evidence: EvidenceObject | undefined) {
 }
 
 function evidenceRefParts(evidence: EvidenceObject | undefined, fallback: string) {
-  if (!evidence) return { fileName: fallback, page: null as number | null };
-  return { fileName: evidenceFileName(evidence), page: evidence.page };
+  if (!evidence) return { fileName: fallback, locator: null };
+  return { fileName: evidenceFileName(evidence), locator: evidenceLocatorLabel(evidence) };
 }
 
 function evidenceFileName(evidence: EvidenceObject) {
   const rawName = evidence.source_name.split(/[\\/]/).pop() ?? evidence.source_name;
   const uploadedMatch = rawName.match(/^.+?_upload_[a-f0-9]{12}_(.+)$/i);
   return uploadedMatch?.[1] ?? rawName;
+}
+
+function evidenceLocatorLabel(evidence: EvidenceObject) {
+  const page = evidence.page ?? evidence.locator?.page;
+  const lineStart = evidence.locator?.line_start ?? metadataNumber(evidence.metadata.line_start);
+  const lineEnd = evidence.locator?.line_end ?? metadataNumber(evidence.metadata.line_end);
+  if (!page && !lineStart) return null;
+  const pageLabel = page ? `p.${page}` : null;
+  const lineLabel = lineStart ? `lines ${lineEnd && lineEnd !== lineStart ? `${lineStart}-${lineEnd}` : lineStart}` : null;
+  return [pageLabel, lineLabel].filter(Boolean).join(" ");
+}
+
+function metadataNumber(value: unknown) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  return null;
 }
 
 function sourceTypeLabel(type: string) {
@@ -124,7 +149,7 @@ function sourceTypeLabel(type: string) {
     uploaded_image: "Uploaded images",
     site_profile: "Site profile",
     geojson: "Geo context",
-    derived: "Derived missing info"
+    derived: "Derived missing information"
   };
   return labels[type] ?? evidenceTypeLabel(type);
 }
@@ -298,15 +323,15 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">LR</div>
+          <div className="brand-mark">BM</div>
           <div>
-            <h1>LuxRenovate</h1>
-            <p>Renovation readiness</p>
+            <h1>Building Mission Readiness</h1>
+            <p>Evidence-backed mission preparation</p>
           </div>
         </div>
 
         <div className="control-group">
-          <label htmlFor="site">Demo site</label>
+          <label htmlFor="site">Demo mission case</label>
           <select id="site" value={selectedSiteId} onChange={(event) => setSelectedSiteId(event.target.value)}>
             {sites.map((site) => (
               <option key={site.site_id} value={site.site_id}>
@@ -341,7 +366,7 @@ function App() {
                   rows={3}
                   value={investigationQuestion}
                   onChange={(event) => setInvestigationQuestion(event.target.value)}
-                  placeholder="Fire safety documentation, roof condition, permit constraints..."
+                  placeholder="Environmental authorization, HVAC records, asbestos inventory, survey needs..."
                 />
               </label>
               <label className="field">
@@ -361,7 +386,7 @@ function App() {
                   checked={includeUploadedDocuments}
                   onChange={(event) => setIncludeUploadedDocuments(event.target.checked)}
                 />
-                <span>Include uploaded docs</span>
+                <span>Include case documents</span>
               </label>
               <label className="checkbox-field">
                 <input
@@ -379,7 +404,7 @@ function App() {
           <button
             className="icon-button"
             type="button"
-            title="Upload document"
+            title="Upload case document"
             onClick={() => setUploadPanelOpen((open) => !open)}
             disabled={!selectedSiteId || uploading}
           >
@@ -387,13 +412,13 @@ function App() {
           </button>
           <button className="primary-button" onClick={handleGenerate} disabled={!selectedSiteId || loading}>
             {loading ? <Loader2 className="spin" size={18} /> : <Play size={18} />}
-            Generate
+            Generate dossier
           </button>
         </div>
 
         {uploadPanelOpen ? (
           <div className="upload-panel">
-            <label htmlFor="upload-subtype">Document type</label>
+            <label htmlFor="upload-subtype">Case document type</label>
             <select
               id="upload-subtype"
               value={uploadSubtype}
@@ -413,7 +438,7 @@ function App() {
           </div>
         ) : null}
 
-        {uploading ? <p className="quiet">Upload stored locally. It will be parsed during Generate.</p> : null}
+        {uploading ? <p className="quiet">Case document stored locally. It will be parsed during Generate.</p> : null}
       </aside>
 
       <section className="workspace">
@@ -439,12 +464,12 @@ function App() {
           <>
             <section className="dossier-hero">
               <div>
-                <h2>Renovation readiness dossier</h2>
+                <h2>Mission readiness dossier</h2>
                 <p>{dossier.building_summary}</p>
               </div>
               <div className="hero-side">
                 <div className="hero-stat">
-                  <span>Evidence Coverage Score</span>
+                  <span>Case-file Evidence Coverage</span>
                   <strong>{dossier.coverage_score.coverage_score}%</strong>
                   <small>
                     available {dossier.coverage_score.available} / partial {dossier.coverage_score.partial} / missing{" "}
@@ -460,7 +485,7 @@ function App() {
                   {dossier.coverage_score.unknown ? (
                     <small>Unknown is counted as uncovered evidence.</small>
                   ) : null}
-                  <em>Not a risk or compliance score.</em>
+                  <em>Not a risk, safety, authorization, or compliance score.</em>
                 </div>
                 <SourceTypeCoverage evidence={dossier.evidence} />
                 <GenerationUsage usage={dossier.usage} />
@@ -489,8 +514,8 @@ function App() {
           </>
         ) : (
           <section className="empty-state">
-            <h2>Ready to generate</h2>
-            <p>Generate runs parsing, chunking, multilingual BM25 retrieval, optional rerank, mock or LLM generation, and validation.</p>
+            <h2>Start a mission preparation case</h2>
+            <p>Select the Luxembourg demo case, add case documents if needed, then generate a traceable mission readiness dossier.</p>
           </section>
         )}
       </section>
@@ -532,7 +557,7 @@ function SiteContextBlock({
   if (!siteContext) {
     return (
       <section className="panel site-context-panel">
-        <h2>Site context</h2>
+        <h2>Case setup</h2>
         <p className="empty">Select a demo site.</p>
       </section>
     );
@@ -540,7 +565,7 @@ function SiteContextBlock({
 
   return (
     <section className="panel site-context-panel">
-      <h2>Site context</h2>
+      <h2>Case setup</h2>
       <div className="site-context-layout">
         <dl className="facts">
           <dt>Address</dt>
@@ -754,7 +779,7 @@ function MapDialog({
       <div className="map-dialog">
         <div className="map-dialog-header">
           <div>
-            <h2>Site map</h2>
+        <h2>Mission case map</h2>
             <p>
               {siteContext.address} / {siteContext.coordinates.lat.toFixed(4)},{" "}
               {siteContext.coordinates.lon.toFixed(4)}
@@ -786,6 +811,14 @@ function renderView(
   onEvidenceRefClick: (evidenceId: string) => void,
   highlightedEvidenceId: string | null
 ) {
+  if (view === "documents") {
+    return <DocumentInventory evidence={dossier.evidence} />;
+  }
+
+  if (view === "evidence") {
+    return <EvidencePanel evidence={dossier.evidence} highlightedEvidenceId={highlightedEvidenceId} />;
+  }
+
   if (view === "matrix") {
     return (
       <div className="matrix-grid">
@@ -805,7 +838,7 @@ function renderView(
   if (view === "gaps") {
     return (
       <div className="split-view">
-        <List title="Planning Evidence Findings">
+        <List title="Public Context Findings">
           {dossier.planning_findings.map((finding) => (
             <article key={finding.finding_id} className="item">
               <h3>{finding.title}</h3>
@@ -818,7 +851,7 @@ function renderView(
             </article>
           ))}
         </List>
-        <List title="Missing Information Checklist">
+        <List title="Missing Mission-Critical Documents">
           {dossier.missing_information_checklist.map((item) => (
             <article key={item.item_id} className="item">
               <h3>{labelize(item.category_id)}</h3>
@@ -828,7 +861,7 @@ function renderView(
             </article>
           ))}
         </List>
-        <List title="Technical Risk Signals">
+        <List title="Items Requiring Expert Validation">
           {dossier.technical_risk_signals.map((signal) => (
             <article key={signal.signal_id} className="item">
               <span className={`priority ${signal.priority}`}>Priority: {priorityLabel(signal.priority)}</span>
@@ -857,16 +890,172 @@ function renderView(
     );
   }
 
-  if (view === "evidence") {
-    return <EvidencePanel evidence={dossier.evidence} highlightedEvidenceId={highlightedEvidenceId} />;
-  }
+  return <SystemTransparency dossier={dossier} />;
+}
 
+type DocumentInventoryRow = {
+  key: string;
+  fileName: string;
+  detectedType: string;
+  status: string;
+  evidenceCount: number;
+  supports: string[];
+  authority: string;
+  used: boolean;
+};
+
+function DocumentInventory({ evidence }: { evidence: EvidenceObject[] }) {
+  const rows = documentInventoryRows(evidence);
+  if (!rows.length) {
+    return (
+      <section className="empty-state inline-empty">
+        <h2>Case document inventory</h2>
+        <p>No case documents have been parsed into dossier evidence yet.</p>
+      </section>
+    );
+  }
   return (
-    <ul className="limitations">
-      {dossier.limitations.map((item) => (
-        <li key={item}>{item}</li>
-      ))}
-    </ul>
+    <div className="inventory-table-wrap">
+      <table className="inventory-table">
+        <thead>
+          <tr>
+            <th>File or source</th>
+            <th>Detected type</th>
+            <th>Status</th>
+            <th>Evidence</th>
+            <th>Supports</th>
+            <th>Trust label</th>
+            <th>Latest dossier</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key}>
+              <td>{row.fileName}</td>
+              <td>{row.detectedType}</td>
+              <td>{row.status}</td>
+              <td>{row.evidenceCount}</td>
+              <td>{row.supports.length ? row.supports.slice(0, 3).map(labelize).join(", ") : "General context"}</td>
+              <td>{row.authority}</td>
+              <td>{row.used ? "Used" : "Not used"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function documentInventoryRows(evidence: EvidenceObject[]): DocumentInventoryRow[] {
+  const grouped = new Map<string, EvidenceObject[]>();
+  for (const item of evidence) {
+    const key = documentInventoryGroupKey(item);
+    grouped.set(key, [...(grouped.get(key) ?? []), item]);
+  }
+  return Array.from(grouped.entries())
+    .map(([key, items]) => {
+      const first = items[0];
+      const supports = Array.from(new Set(items.flatMap((item) => item.supports)));
+      const detectedTypes = Array.from(
+        new Set(items.map((item) => item.source_subtype).filter((value): value is string => Boolean(value)))
+      );
+      return {
+        key,
+        fileName: evidenceFileName(first),
+        detectedType: detectedTypeLabel(detectedTypes, first),
+        status: first.source_type === "derived" ? "System-derived" : "Parsed",
+        evidenceCount: items.length,
+        supports,
+        authority: authorityLabel(first),
+        used: items.some((item) => item.evidence_id.startsWith("ev_"))
+      };
+    })
+    .sort((left, right) => left.fileName.localeCompare(right.fileName));
+}
+
+function documentInventoryGroupKey(evidence: EvidenceObject) {
+  const sourceType = evidence.source_type ?? evidence.evidence_type;
+  if (sourceType === "uploaded_document" || sourceType === "uploaded_image") {
+    return `${sourceType}:${evidenceFileName(evidence)}`;
+  }
+  if (sourceType === "derived") {
+    return "derived:missing_information";
+  }
+  return evidence.source_id ?? `${sourceType}:${evidence.source_name}`;
+}
+
+function detectedTypeLabel(detectedTypes: string[], fallback: EvidenceObject) {
+  if (detectedTypes.length === 1) return labelize(detectedTypes[0]);
+  if (detectedTypes.length > 1) return `Multiple: ${detectedTypes.slice(0, 3).map(labelize).join(", ")}`;
+  return sourceTypeLabel(fallback.source_type ?? fallback.evidence_type);
+}
+
+function authorityLabel(evidence: EvidenceObject) {
+  if (evidence.source_type === "official_planning_pdf") return "Official public";
+  if (evidence.source_type === "uploaded_document" || evidence.source_type === "uploaded_image") return "User-provided";
+  if (evidence.source_type === "site_profile") return "Demo metadata";
+  if (evidence.source_type === "geojson") return "Spatial context";
+  if (evidence.source_type === "derived") return "System-derived";
+  return evidence.authority_level ? labelize(evidence.authority_level) : "Unverified";
+}
+
+function SystemTransparency({ dossier }: { dossier: Dossier }) {
+  const usage = dossier.usage;
+  const review = dossier.semantic_review;
+  const reviewUsage = dossier.semantic_review_usage;
+  const tokenTotal = usage ? usage.total_tokens_reported ?? usage.total_tokens_estimated : null;
+  const reviewTokenTotal = reviewUsage ? reviewUsage.total_tokens_reported ?? reviewUsage.total_tokens_estimated : null;
+  return (
+    <div className="system-grid">
+      <section className="system-panel">
+        <h2>Generation mode</h2>
+        <dl className="facts compact">
+          <dt>Mode</dt>
+          <dd>{usage?.generation_mode ?? "Unknown"}</dd>
+          <dt>External LLM</dt>
+          <dd>{usage?.external_llm_called ? "Called" : "Not called"}</dd>
+          <dt>Provider</dt>
+          <dd>{usage?.llm_provider ?? "Unknown"}</dd>
+          <dt>Model</dt>
+          <dd>{usage?.llm_model ?? "Not reported"}</dd>
+          <dt>Tokens</dt>
+          <dd>{tokenTotal === null ? "Not reported" : tokenTotal.toLocaleString()}</dd>
+        </dl>
+      </section>
+      <section className="system-panel">
+        <h2>Semantic reviewer</h2>
+        <dl className="facts compact">
+          <dt>Status</dt>
+          <dd>{review?.status ?? "Not available"}</dd>
+          <dt>Blocking</dt>
+          <dd>{review?.blocking ? "Yes" : "No"}</dd>
+          <dt>Provider</dt>
+          <dd>{review?.reviewer_provider ?? "disabled"}</dd>
+          <dt>Warnings</dt>
+          <dd>{review ? semanticWarningCount(review) : 0}</dd>
+          <dt>Tokens</dt>
+          <dd>{reviewTokenTotal === null ? "Not reported" : reviewTokenTotal.toLocaleString()}</dd>
+        </dl>
+      </section>
+      <section className="system-panel wide">
+        <h2>Limitations</h2>
+        <ul className="limitations">
+          {dossier.limitations.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function semanticWarningCount(review: NonNullable<Dossier["semantic_review"]>) {
+  return (
+    review.unsupported_claims.length +
+    review.forbidden_claim_warnings.length +
+    review.grounding_warnings.length +
+    (review.overclaiming_detected ? 1 : 0) +
+    (review.absence_to_risk_violation ? 1 : 0)
   );
 }
 
@@ -970,11 +1159,12 @@ function EvidenceRefs({
   onClick: (evidenceId: string) => void;
 }) {
   if (!refs.length) return null;
+  const uniqueRefs = uniqueDisplayRefs(refs, evidenceById);
   return (
     <div className="evidence-refs">
       <span className="evidence-refs-label">Refs</span>
       <div className="evidence-ref-list">
-        {refs.map((ref) => {
+        {uniqueRefs.map((ref) => {
           const evidence = evidenceById.get(ref);
           const parts = evidenceRefParts(evidence, ref);
           return (
@@ -985,13 +1175,35 @@ function EvidenceRefs({
               onClick={() => onClick(ref)}
             >
               <span className="evidence-ref-file">{parts.fileName}</span>
-              {parts.page ? <span className="evidence-ref-page">p.{parts.page}</span> : null}
+              {parts.locator ? <span className="evidence-ref-page">{parts.locator}</span> : null}
             </button>
           );
         })}
       </div>
     </div>
   );
+}
+
+function uniqueDisplayRefs(refs: string[], evidenceById: Map<string, EvidenceObject>) {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const ref of refs) {
+    const evidence = evidenceById.get(ref);
+    const parts = evidenceRefParts(evidence, ref);
+    const key = evidence
+      ? [
+          evidence.source_type ?? evidence.evidence_type,
+          parts.fileName,
+          evidence.source_subtype ?? "",
+          parts.locator ?? "",
+          evidence.content.trim().replace(/\s+/g, " ")
+        ].join("|")
+      : ref;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(ref);
+  }
+  return unique;
 }
 
 function EvidencePanel({
@@ -1001,23 +1213,25 @@ function EvidencePanel({
   evidence: EvidenceObject[];
   highlightedEvidenceId: string | null;
 }) {
+  const rows = displayEvidenceRows(evidence);
   return (
     <div className="evidence-list">
-      {evidence.map((item) => (
+      {rows.map(({ item, evidenceIds, duplicateCount }) => (
         <article
-          key={item.evidence_id}
+          key={evidenceIds.join("|")}
           id={`evidence-${item.evidence_id}`}
-          className={`item evidence-item ${highlightedEvidenceId === item.evidence_id ? "highlighted" : ""}`}
+          className={`item evidence-item ${highlightedEvidenceId && evidenceIds.includes(highlightedEvidenceId) ? "highlighted" : ""}`}
         >
           <div className="evidence-meta">
             <strong>{evidenceFileName(item)}</strong>
             <span>
               {sourceTypeLabel(item.source_type ?? item.evidence_type)}
               {item.source_subtype ? ` / ${labelize(item.source_subtype)}` : ""}
-              {item.page ? ` / page ${item.page}` : ""}
+              {evidenceLocatorLabel(item) ? ` / ${evidenceLocatorLabel(item)}` : ""}
             </span>
           </div>
           <span className={`evidence-type ${item.evidence_type}`}>{evidenceTypeLabel(item.evidence_type)}</span>
+          {duplicateCount > 1 ? <span className="evidence-duplicate-note">{duplicateCount} matching evidence records collapsed</span> : null}
           <p>{item.content}</p>
           {evidenceSourceHref(item) ? (
             <a className="source-link" href={evidenceSourceHref(item) ?? undefined} target="_blank" rel="noreferrer">
@@ -1028,6 +1242,29 @@ function EvidencePanel({
       ))}
     </div>
   );
+}
+
+function displayEvidenceRows(evidence: EvidenceObject[]) {
+  const grouped = new Map<string, EvidenceObject[]>();
+  for (const item of evidence) {
+    const key = evidenceDisplayKey(item);
+    grouped.set(key, [...(grouped.get(key) ?? []), item]);
+  }
+  return Array.from(grouped.values()).map((items) => ({
+    item: items[0],
+    evidenceIds: items.map((item) => item.evidence_id),
+    duplicateCount: items.length
+  }));
+}
+
+function evidenceDisplayKey(evidence: EvidenceObject) {
+  return [
+    evidence.source_type ?? evidence.evidence_type,
+    evidenceFileName(evidence),
+    evidence.source_subtype ?? "",
+    evidence.page ?? "",
+    evidence.content.trim().replace(/\s+/g, " ")
+  ].join("|");
 }
 
 export default App;

@@ -52,6 +52,8 @@ export interface EvidenceObject {
   chunk_id: string | null;
   locator: {
     page: number | null;
+    line_start: number | null;
+    line_end: number | null;
     chunk_id: string | null;
   } | null;
   supports: string[];

@@ -1,6 +1,18 @@
-:root {
-  color: #1f2933;
-  background: #f4f6f7;
+﻿:root {
+  --text: oklch(25% 0.017 210);
+  --muted: oklch(51% 0.02 220);
+  --subtle: oklch(94% 0.008 205);
+  --line: oklch(88% 0.012 205);
+  --surface: oklch(99% 0.004 205);
+  --surface-soft: oklch(97.5% 0.006 205);
+  --accent: oklch(45% 0.105 190);
+  --accent-soft: oklch(96% 0.025 190);
+  --warning: oklch(52% 0.13 70);
+  --warning-soft: oklch(96% 0.04 80);
+  --danger: oklch(49% 0.15 35);
+  --danger-soft: oklch(94% 0.04 35);
+  color: var(--text);
+  background: oklch(96.5% 0.006 205);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
@@ -39,7 +51,7 @@ textarea {
   gap: 18px;
   padding: 24px;
   border-right: 1px solid #dbe1e5;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .brand {
@@ -54,8 +66,8 @@ textarea {
   height: 42px;
   place-items: center;
   border-radius: 8px;
-  background: #0f766e;
-  color: #ffffff;
+  background: var(--accent);
+  color: oklch(98% 0.006 190);
   font-weight: 800;
 }
 
@@ -106,7 +118,7 @@ select {
   padding: 8px 36px 8px 10px;
   border: 1px solid #cbd5da;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   text-overflow: ellipsis;
 }
 
@@ -117,8 +129,8 @@ textarea {
   padding: 10px;
   border: 1px solid #cbd5da;
   border-radius: 8px;
-  background: #ffffff;
-  color: #1f2933;
+  background: var(--surface);
+  color: var(--text);
   line-height: 1.45;
 }
 
@@ -133,7 +145,7 @@ textarea::placeholder {
 .view-panel {
   border: 1px solid #dbe1e5;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .site-card {
@@ -162,7 +174,7 @@ textarea::placeholder {
 .icon-button {
   width: 46px;
   border: 1px solid #cbd5da;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .icon-button:disabled {
@@ -181,7 +193,7 @@ textarea::placeholder {
   padding: 12px;
   border: 1px solid #dbe1e5;
   border-radius: 8px;
-  background: #fbfcfc;
+  background: var(--surface-soft);
 }
 
 .upload-panel label,
@@ -205,16 +217,16 @@ textarea::placeholder {
   padding: 0 12px;
   border: 1px solid #cbd5da;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   color: #3d4a50;
   cursor: pointer;
   font-weight: 750;
 }
 
 .advanced-toggle.active {
-  border-color: #0f766e;
-  background: #edf7f5;
-  color: #0f766e;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .advanced-fields {
@@ -223,7 +235,7 @@ textarea::placeholder {
   padding: 12px;
   border: 1px solid #dbe1e5;
   border-radius: 8px;
-  background: #fbfcfc;
+  background: var(--surface-soft);
 }
 
 .field {
@@ -244,7 +256,7 @@ textarea::placeholder {
 .checkbox-field input {
   width: 16px;
   height: 16px;
-  accent-color: #0f766e;
+  accent-color: var(--accent);
 }
 
 .file-select-button {
@@ -256,8 +268,8 @@ textarea::placeholder {
   padding: 0 12px;
   border: 1px solid #cbd5da;
   border-radius: 8px;
-  background: #ffffff;
-  color: #1f2933;
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   font-weight: 750;
 }
@@ -267,8 +279,8 @@ textarea::placeholder {
   min-width: 132px;
   padding: 0 16px;
   border: 0;
-  background: #0f766e;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--surface);
   font-weight: 750;
 }
 
@@ -294,7 +306,7 @@ textarea::placeholder {
   padding: 12px 14px;
   border: 1px solid #fecaca;
   border-radius: 8px;
-  background: #fff7f7;
+  background: oklch(98% 0.012 30);
   color: #9f1239;
 }
 
@@ -383,7 +395,7 @@ textarea::placeholder {
 }
 
 .geojson-summary strong {
-  color: #0f766e;
+  color: var(--accent);
   white-space: nowrap;
 }
 
@@ -420,8 +432,8 @@ textarea::placeholder {
   justify-content: center;
   border: 1px solid #cbd5da;
   border-radius: 8px;
-  background: #ffffff;
-  color: #1f2933;
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   z-index: 500;
 }
@@ -438,9 +450,9 @@ textarea::placeholder {
 }
 
 .map-tool-button.active {
-  border-color: #0f766e;
-  background: #edf7f5;
-  color: #0f766e;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .drawing-enabled .leaflet-container {
@@ -469,7 +481,7 @@ textarea::placeholder {
   height: min(760px, 88vh);
   overflow: hidden;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
 }
 
@@ -494,7 +506,7 @@ textarea::placeholder {
 
 .leaflet-popup-content {
   margin: 10px 12px;
-  color: #1f2933;
+  color: var(--text);
   line-height: 1.45;
 }
 
@@ -544,11 +556,11 @@ textarea::placeholder {
   padding: 12px;
   border: 1px solid #dbe1e5;
   border-radius: 8px;
-  background: #fbfcfc;
+  background: var(--surface-soft);
 }
 
 .hero-stat strong {
-  color: #0f766e;
+  color: var(--accent);
   font-size: 36px;
   line-height: 1;
 }
@@ -561,7 +573,7 @@ textarea::placeholder {
 }
 
 .hero-stat span {
-  color: #1f2933;
+  color: var(--text);
   font-weight: 800;
 }
 
@@ -570,11 +582,11 @@ textarea::placeholder {
 }
 
 .source-coverage {
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .source-coverage > span {
-  color: #1f2933;
+  color: var(--text);
   font-size: 12px;
   font-weight: 800;
 }
@@ -596,7 +608,7 @@ textarea::placeholder {
 }
 
 .source-coverage strong {
-  color: #0f766e;
+  color: var(--accent);
 }
 
 .tabs {
@@ -610,15 +622,15 @@ textarea::placeholder {
   min-width: 92px;
   padding: 0 14px;
   border: 1px solid #cbd5da;
-  background: #ffffff;
+  background: var(--surface);
   color: #3d4a50;
   font-weight: 750;
 }
 
 .tabs button.active {
-  border-color: #0f766e;
-  background: #0f766e;
-  color: #ffffff;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
 }
 
 .view-panel,
@@ -626,6 +638,10 @@ textarea::placeholder {
   min-width: 0;
   min-height: 220px;
   padding: 18px;
+}
+
+.inline-empty {
+  min-height: 150px;
 }
 
 .empty-state {
@@ -649,6 +665,69 @@ textarea::placeholder {
   min-width: 0;
 }
 
+.inventory-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.inventory-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.inventory-table th,
+.inventory-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8ec;
+  text-align: left;
+  vertical-align: top;
+}
+
+.inventory-table th {
+  color: #3d4a50;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--surface-soft);
+}
+
+.inventory-table td {
+  color: #35434a;
+  line-height: 1.4;
+}
+
+.inventory-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.system-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
+
+.system-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e2e8ec;
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.system-panel.wide {
+  grid-column: 1 / -1;
+}
+
+.facts.compact {
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 7px 12px;
+}
+
 .list,
 .evidence-list {
   display: grid;
@@ -669,7 +748,7 @@ textarea::placeholder {
   padding: 12px;
   border: 1px solid #e2e8ec;
   border-radius: 8px;
-  background: #fbfcfc;
+  background: var(--surface-soft);
   overflow-wrap: anywhere;
 }
 
@@ -700,7 +779,7 @@ textarea::placeholder {
 }
 
 .status.partial {
-  background: #fff7d6;
+  background: var(--warning-soft);
   color: #8a5b00;
 }
 
@@ -723,12 +802,12 @@ textarea::placeholder {
 }
 
 .evidence-type {
-  background: #edf7f5;
+  background: var(--accent-soft);
   color: #155e59;
 }
 
 .evidence-type.derived_missing_information {
-  background: #fff7d6;
+  background: var(--warning-soft);
   color: #8a5b00;
 }
 
@@ -780,8 +859,8 @@ textarea::placeholder {
   padding: 3px 8px;
   border: 1px solid #b9d9d5;
   border-radius: 999px;
-  background: #edf7f5;
-  color: #0f766e;
+  background: var(--accent-soft);
+  color: var(--accent);
   cursor: pointer;
   font-weight: 750;
   text-decoration: none;
@@ -803,7 +882,7 @@ textarea::placeholder {
 }
 
 .evidence-ref-button:hover {
-  border-color: #0f766e;
+  border-color: var(--accent);
   background: #dff1ed;
 }
 
@@ -813,13 +892,13 @@ textarea::placeholder {
 }
 
 .evidence-item.highlighted {
-  border-color: #0f766e;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14);
 }
 
 .evidence-item a,
 .source-link {
-  color: #0f766e;
+  color: var(--accent);
   font-weight: 750;
   text-decoration: none;
 }
@@ -944,3 +1023,4 @@ textarea::placeholder {
     margin-bottom: 8px;
   }
 }
+

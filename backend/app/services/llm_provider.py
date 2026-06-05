@@ -182,15 +182,15 @@ class MockLLMProvider:
         draft = DossierDraft(
             building_summary=(
                 f"Demo-mode dossier for {address} in {commune}. Retrieved evidence gives enough context "
-                "to start a renovation-readiness review, while several technical documents still need human verification."
+                "to start mission preparation, while several mission-critical documents still need expert verification."
             ),
             planning_findings=[
                 Finding(
                     finding_id="finding_001",
-                    title="Retrieved planning context needs review",
+                    title="Retrieved public context needs review",
                     summary=(
-                        "The retrieved planning evidence should be checked against the intended renovation scope "
-                        "before permit or design conclusions are made."
+                        "The retrieved public or planning evidence should be checked against the mission objective "
+                        "before authorization, control, or field-work conclusions are made."
                     ),
                     evidence_refs=[planning_ref],
                     source_document=_source_name_for_ref(evidence, planning_ref),
@@ -203,10 +203,10 @@ class MockLLMProvider:
             technical_risk_signals=[
                 RiskSignal(
                     signal_id="signal_001",
-                    title="Technical records remain incomplete",
+                    title="Expert validation boundary remains open",
                     description=(
-                        "Demo mode identifies documentation gaps that should be resolved by qualified reviewers "
-                        "before renovation scope, cost, or sequencing decisions."
+                        "Demo mode identifies documentation gaps that should be resolved by qualified experts "
+                        "before technical-control, environmental, survey, or field-work decisions."
                     ),
                     evidence_refs=[fallback_ref],
                     priority="medium",
@@ -216,7 +216,7 @@ class MockLLMProvider:
             limitations=[
                 "Generated in deterministic mock mode without calling an external LLM.",
                 "This dossier is for product review and workflow demonstration only.",
-                "This is not a final engineering assessment; all engineering, fire-safety, legal, planning, energy, and occupancy conclusions require human review.",
+                "This is not a final engineering assessment; all technical, fire-safety, legal, environmental, asbestos, HVAC, energy, occupancy, ITM, SNSFP, and AEV conclusions require expert review.",
             ],
         )
         return LLMGenerationResult(draft=draft, usage=build_mock_usage())
@@ -236,7 +236,7 @@ def _mock_matrix_item(locked_item: dict[str, Any]) -> ReadinessMatrixItem:
         category_id=locked_item["category_id"],
         label=locked_item["label"],
         status=locked_item["status"],
-        summary=str(locked_item.get("status_reason") or "Rule-derived readiness status requires human review."),
+        summary=str(locked_item.get("status_reason") or "Rule-derived mission readiness status requires expert review."),
         evidence_refs=list(locked_item.get("evidence_refs") or []),
         recommended_next_action=str(
             locked_item.get("recommended_next_action_seed") or "Collect and verify supporting evidence."
@@ -246,11 +246,11 @@ def _mock_matrix_item(locked_item: dict[str, Any]) -> ReadinessMatrixItem:
 
 def _mock_checklist(evidence_refs: list[str]) -> list[ChecklistItem]:
     tasks = [
-        ("check_001", "Verify site identity and access constraints on site.", "The demo evidence may not include parcel-level precision.", "high"),
-        ("check_002", "Compare retrieved planning context with the proposed renovation scope.", "Planning evidence needs scope-specific interpretation.", "high"),
-        ("check_003", "Request existing drawings and as-built records.", "Layout and intervention planning depend on verified drawings.", "medium"),
-        ("check_004", "Schedule structural and envelope walk-throughs.", "Older-building conditions need qualified visual review.", "medium"),
-        ("check_005", "Collect MEP, energy, fire-safety, and hazardous-material records.", "These records are common blockers before renovation design work.", "medium"),
+        ("check_001", "Verify site identity, access constraints, and case-file references.", "The demo evidence may not include parcel-level precision or full access context.", "high"),
+        ("check_002", "Compare retrieved public context with the mission objective.", "Public and planning evidence needs mission-specific interpretation.", "high"),
+        ("check_003", "Request drawings, as-built records, and survey data.", "Geometry, access, and control planning depend on verified drawings or measurements.", "medium"),
+        ("check_004", "Plan structural, facade, envelope, and safety walk-throughs.", "Older-building conditions need qualified visual review without assuming a final condition.", "medium"),
+        ("check_005", "Collect HVAC, commissioning, maintenance, energy, fire-safety, environmental, and asbestos or pollutant records.", "These records are common mission-readiness gaps before expert controls.", "medium"),
     ]
     return [
         ChecklistItem(

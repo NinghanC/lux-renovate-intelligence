@@ -35,16 +35,16 @@ geojson_service = GeoJsonService()
 
 
 DEFAULT_QUERY = (
-    "renovation planning constraints existing drawings structural documentation fire safety "
-    "building envelope humidity MEP energy hazardous materials accessibility site inspection"
+    "mission preparation public authorization context existing drawings structural documentation fire safety "
+    "facade envelope humidity HVAC MEP energy comfort asbestos pollutants environmental commissioning survey expert validation"
 )
 
 PURPOSE_QUERIES = {
-    "planning_context": "PAG PAP zoning planning constraints protected sector setbacks renovation permissions",
-    "documentation_gaps": "existing drawings as-built records structural calculations fire safety approvals energy certificate hazardous materials survey",
-    "technical_risk": "structural cracks humidity water infiltration MEP electrical heating roof facade hazardous materials old building risk signals",
-    "site_inspection": "site inspection checklist basement moisture facade roof MEP fire safety accessibility egress verification",
-    "renovation_constraints": "renovation scope constraints permits access logistics building envelope energy accessibility planning restrictions",
+    "public_authorization_context": "PAG PAP zoning planning constraints protected sector setbacks authorization commodo incommodo classified establishment environmental permit",
+    "documentation_gaps": "existing drawings as-built records structural calculations fire safety accessibility energy certificate asbestos pollutants hazardous materials survey",
+    "technical_systems": "HVAC MEP electrical heating cooling ventilation sanitary rainwater commissioning maintenance technical equipment",
+    "expert_validation": "structural cracks humidity water infiltration facade roof asbestos pollutants environmental safety expert validation controls measurements",
+    "mission_preparation": "mission checklist site controls access logistics survey 3D scan measurement inspection verification field work",
 }
 
 

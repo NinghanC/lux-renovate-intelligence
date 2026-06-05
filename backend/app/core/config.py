@@ -123,7 +123,7 @@ def aws_credentials_available() -> bool:
 
 @dataclass(frozen=True)
 class Settings:
-    app_name: str = "LuxRenovate Intelligence"
+    app_name: str = "Building Mission Readiness Intelligence"
     api_auth_enabled: bool = _env_flag("API_AUTH_ENABLED", "true")
     api_auth_token: str | None = _api_auth_token()
     llm_provider: str = _llm_provider()

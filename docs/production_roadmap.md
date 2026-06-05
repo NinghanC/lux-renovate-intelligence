@@ -18,7 +18,7 @@
 
 - Similar historical case retrieval.
 - Recurring defect pattern analytics.
-- Experience-enhanced site inspection checklist.
+- Experience-enhanced mission checklist.
 - Human-reviewed report draft assistance.
 - Monitoring for retrieval quality, validation failures, and model drift.
 

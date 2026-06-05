@@ -69,6 +69,37 @@ def test_multilingual_keyword_terms_expand_query():
     assert "fire_safety_documentation" in result.results[0].supports
 
 
+def test_chunk_line_metadata_is_exposed_on_evidence_locator():
+    chunks = [
+        PlanningChunk(
+            chunk_id="doc_p001_c001",
+            document_id="doc",
+            document_name="Mission note",
+            document_type="uploaded",
+            commune="Luxembourg",
+            page=1,
+            text="Planning constraints and fire safety documents should be verified.",
+            source_path="note.txt",
+            metadata={"line_start": 4, "line_end": 6},
+        )
+    ]
+
+    result = DocumentRetriever(
+        embedding_provider=DisabledEmbeddingProvider(),
+        rerank_provider=DisabledRerankProvider(),
+    ).retrieve_from_chunks(
+        chunks=chunks,
+        commune="Luxembourg",
+        query="fire safety",
+        limit=1,
+        use_precomputed_embeddings=False,
+    )
+
+    assert result.results[0].locator is not None
+    assert result.results[0].locator.line_start == 4
+    assert result.results[0].locator.line_end == 6
+
+
 def test_purpose_based_retrieval_merges_results_and_tracks_purpose():
     chunks = [
         PlanningChunk(

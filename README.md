@@ -1,10 +1,10 @@
-# LuxRenovate Intelligence
+# Building Mission Readiness Intelligence
 
-LuxRenovate Intelligence is a Luxembourg-focused MVP designed to help renovation professionals assess the readiness of existing buildings for renovation projects when plans, permits, technical records, and historical documentation are incomplete, outdated, or unavailable.
+Building Mission Readiness Intelligence is a Luxembourg-focused MVP for evidence-backed preparation dossiers before technical-control, environmental, HVAC, commissioning, survey, safety, and expertise missions.
 
-Rather than functioning as a generic RAG chatbot, the platform supports a structured renovation due-diligence workflow. Before visiting a site, engineers need a clear understanding of what information is already available, what critical evidence is missing, which regulatory or public constraints may affect the project, and which questions should be investigated during the inspection.
+Rather than functioning as a generic RAG chatbot, the platform supports a structured mission-preparation workflow. Before experts perform a mission, they need a clear view of what the case file already contains, which public, uploaded, geospatial, or derived evidence supports the case, which mission-critical documents are missing, and which topics require expert validation.
 
-The workflow is site-centric. Users select a Luxembourg demonstration property, optionally upload supporting documents, and generate a renovation readiness dossier. The dossier consolidates available evidence, identifies documentation gaps, highlights potential constraints relevant to the property, recommends inspection priorities, and provides traceable references for every finding. The objective is not to answer arbitrary questions, but to help engineers make informed decisions about what is known, what remains uncertain, and what actions are required to progress a renovation assessment.
+The workflow is case-centric. Users select a Luxembourg demo mission case, optionally upload case documents, and generate a mission readiness dossier. The dossier consolidates available evidence, identifies missing mission-critical documents, highlights items requiring expert validation, recommends controls, inspections, measurements, scans, or document requests, and provides traceable references for every finding.
 
 ---
 
@@ -26,21 +26,21 @@ The backend normalizes these inputs into source-aware evidence records, retrieve
 
 ### Problem
 
-Many renovation or technical due-diligence projects start with incomplete building knowledge. Older buildings may lack usable original drawings, structural documentation, fire-safety dossiers, MEP information, energy documents, hazardous-material assessments, or reliable historical alteration records.
+Many technical-control and expertise missions start with incomplete building knowledge. Existing buildings and classified establishments may lack usable drawings, structural documentation, fire-safety dossiers, HVAC or MEP information, energy or comfort evidence, environmental authorizations, commissioning records, asbestos or pollutant inventories, survey data, or reliable historical alteration records.
 
-Before a redesign, renovation, acquisition, or inspection, engineers need to understand:
+Before a technical, environmental, HVAC, commissioning, survey, safety, or expertise mission, experts need to understand:
 
 - what public planning context is available;
-- which documents or assessments are missing;
+- which mission-critical documents or assessments are missing;
 - which findings are supported by evidence;
-- which uncertainties require human review;
-- what should be checked during a site visit.
+- which uncertainties require expert validation;
+- what should be requested, inspected, measured, scanned, verified, or controlled next.
 
 ### Primary user
 
-The primary user is a SECO engineer preparing renovation, technical due diligence, or inspection work for an existing building in Luxembourg.
+The primary user is a technical-control or expertise professional preparing mission work for an existing building or classified establishment in Luxembourg.
 
-The system does not replace the engineer. It prepares a reviewable dossier and explicitly avoids final structural, fire-safety, legal, compliance, or energy-certification decisions.
+The system does not replace expert judgement. It prepares a reviewable dossier and explicitly avoids final legal, structural, environmental, asbestos, fire-safety, ITM, SNSFP, AEV, HVAC, compliance, occupancy, or energy-certification conclusions.
 
 ---
 
@@ -54,22 +54,23 @@ From the user's perspective, the MVP supports this workflow:
 2. **Review site context.**
    The user can see basic site information, commune, coordinates, and lightweight GeoJSON context.
 
-3. **Optionally upload sample documents.**
-   The user can upload a sample PDF, TXT, or Markdown file, such as a renovation note, inspection note, or synthetic technical document.
+3. **Optionally upload case documents.**
+   The user can upload a sample PDF, TXT, or Markdown file, such as an inspection note, environmental authorization note, HVAC record, asbestos or pollutant inventory, commissioning report, survey note, or synthetic technical document.
 
-4. **Generate a renovation readiness dossier.**
+4. **Generate a mission readiness dossier.**
    The user clicks **Generate**. The backend retrieves evidence, builds context, calls the configured LLM or returns a cached dossier when the inputs are unchanged, validates the output, stores the dossier, and returns it to the UI.
 
 5. **Review the generated dossier.**
    The UI displays:
-   - building summary;
-   - readiness matrix;
+   - case summary;
+   - mission readiness matrix;
    - evidence coverage score;
-   - missing information checklist;
-   - technical risk signals;
-   - site inspection checklist;
+   - missing mission-critical documents;
+   - items requiring expert validation;
+   - mission preparation checklist;
    - source type coverage;
    - evidence panel;
+   - system transparency;
    - limitations.
 
 6. **Inspect the evidence behind findings.**
@@ -168,7 +169,7 @@ The local MVP uses public and sample data that can be reviewed from the reposito
 | Demo site profiles | `data/sample/demo_sites.json` | Structured site metadata for the three demo sites |
 | GeoJSON context | `data/sample/demo_geospatial.geojson` | Lightweight site-context geometry and distance calculation |
 | Geospatial context JSON | `data/sample/geospatial_context.json` | Human-readable public-data-style site context and limitations |
-| Uploaded sample documents | `data/sample/upload_examples/` or UI upload | Simulated client-provided renovation or technical documents |
+| Uploaded sample documents | `data/sample/upload_examples/` or UI upload | Simulated client-provided mission or technical documents |
 | Derived missing-information evidence | generated during dossier build | Represents missing documents or unavailable assessments for UI traceability |
 
 The public planning documents are small enough for local review. Larger production-grade Luxembourg data sources such as national PAG datasets, Geoportail APIs, BD-Adresses, and building/geospatial datasets are referenced as production extensions, not required for the local MVP.
@@ -216,7 +217,7 @@ The backend validates:
 
 - Pydantic schema correctness;
 - all referenced evidence IDs exist;
-- planning findings, risk signals, and inspection checklist items cite evidence;
+- public-context findings, expert-validation items, and mission checklist items cite evidence;
 - evidence sources exist in the source registry;
 - PDF page references stay within registered source page ranges;
 - planning claims are backed by official planning-document sources;
@@ -237,13 +238,13 @@ Important limitation: the validator reduces unsupported claims, but it does not 
 - **Embeddings, rerank, and OCR are optional integrations.** They are abstracted behind providers so the MVP can run locally while production deployments can use managed cloud services.
 - **SourceRegistry + EvidenceObject** make citations and evidence traceability explicit before moving to production databases.
 - **GeoJSON support is intentionally lightweight.** It provides coordinate and distance context, not cadastral, structural, or engineering-grade inference.
-- **The evidence coverage score is not a risk, safety, compliance, or renovation-feasibility score.** It only summarizes evidence availability.
+- **The evidence coverage score is not a risk, safety, authorization, compliance, or feasibility score.** It only summarizes case-file evidence availability.
 
 ### Deterministic readiness-matrix rules
 
 The readiness matrix is assigned before generation by a deterministic rule engine. Evidence objects are matched against each taxonomy category by source type, document subtype, evidence role, and selected content terms. The resulting `status` and `evidence_refs` are locked into the prompt.
 
-The LLM, or the deterministic mock generator, only writes the human-readable summaries, recommended next actions, findings, risk signals, checklist items, and limitations around that rule-derived matrix. Validators then verify that the generated dossier did not change any rule-derived matrix category, label, status, or evidence reference. Missing categories also seed missing-information checklist items deterministically.
+The LLM, or the deterministic mock generator, only writes the human-readable summaries, recommended next actions, findings, expert-validation items, checklist items, and limitations around that rule-derived matrix. Validators then verify that the generated dossier did not change any rule-derived matrix category, label, status, or evidence reference. Missing categories also seed missing-information checklist items deterministically.
 
 Implemented control flow:
 
@@ -342,7 +343,7 @@ SEMANTIC_REVIEW_RESPONSE_FORMAT=json_object
 
 The reviewer does not act as a router, planner, or autonomous agent. It produces structured warnings for overclaiming, unsupported interpretations, grounding issues, and absence-of-evidence-to-risk mistakes. Deterministic validator failures still block the dossier; semantic reviewer warnings are shown as review metadata.
 
-No LLM API key is required for the demo. The reviewer can select a Luxembourg demo site, optionally upload a file from `data/sample/upload_examples/`, click **Generate**, and review the readiness matrix, coverage score, missing-information checklist, inspection checklist, evidence panel, source links, and limitations.
+No LLM API key is required for the demo. The reviewer can select a Luxembourg demo mission case, optionally upload a file from `data/sample/upload_examples/`, click **Generate dossier**, and review the mission readiness matrix, coverage score, missing-information checklist, mission checklist, document inventory, evidence panel, source links, system transparency, and limitations.
 
 Local API routes are protected by a simple API key gate. The default demo token is intentionally non-secret and exists only so the repo runs out of the box:
 
@@ -479,7 +480,7 @@ In the browser:
 3. Review the site context and lightweight map context.
 4. Optional: upload a sample file from `data/sample/upload_examples/`.
 5. Click **Generate**.
-6. Review the readiness matrix, coverage score, missing information, risk signals, inspection checklist, evidence panel, and limitations.
+6. Review the mission readiness matrix, coverage score, missing information, expert-validation items, mission checklist, document inventory, evidence panel, system transparency, and limitations.
 7. Open source files from the evidence/source area where available.
 
 With the default mock configuration, step 5 generates a demo dossier without credentials. If you disable mock mode without configuring a real LLM, step 5 returns a clear `llm_not_configured` error while the rest of the app remains usable for reviewing the data pipeline, source registry, site context, uploads, and retrieval flow.
@@ -568,8 +569,11 @@ The MVP does not provide:
 
 - final structural safety decisions;
 - fire-safety approval;
-- legal or planning-compliance judgement;
-- energy certification;
+- legal, ITM, SNSFP, AEV, environmental, or planning-compliance judgement;
+- official commodo-incommodo assessment;
+- authorization, operating-permit, or classified-establishment conclusions;
+- accredited asbestos or pollutant diagnosis;
+- HVAC performance, comfort, energy-quality, or environmental conformity certification;
 - cadastral or ownership verification;
 - full as-built reconstruction;
 - SECO internal data integration;
@@ -640,7 +644,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 - Evaluate production storage and processing options such as managed lakehouse tables, PostgreSQL/PostGIS, object storage, and scheduled jobs.
 - Plan deployment resources for backend, frontend, document processing, OCR, retrieval, and LLM serving.
 - Design the first SECO internal-data integration: historical inspection reports, defect observations, photos, measurements, and project metadata.
-- Prototype similar-case retrieval and experience-enhanced inspection checklist generation from governed internal data.
+- Prototype similar-case retrieval and experience-enhanced mission checklist generation from governed internal data.
 - Add human expert labels and review rubrics for semantic evaluation before treating narrative quality metrics as production gates.
 
 ---

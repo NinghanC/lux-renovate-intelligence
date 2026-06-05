@@ -1,2 +1,2 @@
-"""LuxRenovate Intelligence backend package."""
+"""Building Mission Readiness Intelligence backend package."""
 

@@ -351,6 +351,8 @@ class DocumentRetriever:
         authority = source.authority if source else "user_supplied" if chunk.document_type == "uploaded" else "municipal_official"
         supports = infer_support_categories(f"{chunk.document_name}\n{chunk.text}")
         parser = chunk.metadata.get("parser") or (source.parser if source else None)
+        line_start = _metadata_int(chunk.metadata.get("line_start"))
+        line_end = _metadata_int(chunk.metadata.get("line_end"))
         return EvidenceObject(
             evidence_id=f"ev_{chunk.chunk_id}",
             evidence_type=evidence_type,
@@ -365,7 +367,7 @@ class DocumentRetriever:
             source_url=chunk.source_url,
             page=chunk.page,
             chunk_id=chunk.chunk_id,
-            locator=EvidenceLocator(page=chunk.page, chunk_id=chunk.chunk_id),
+            locator=EvidenceLocator(page=chunk.page, line_start=line_start, line_end=line_end, chunk_id=chunk.chunk_id),
             supports=supports,
             parser=str(parser) if parser else None,
             content=chunk.text,
@@ -379,3 +381,11 @@ class DocumentRetriever:
             confidence="medium",
             score=score,
         )
+
+
+def _metadata_int(value: object) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None

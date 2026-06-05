@@ -5,7 +5,7 @@ from app.services.readiness_rule_engine import RuleMatrixItem
 from app.services.taxonomy import taxonomy_ids
 
 
-VALIDATOR_VERSION = "2026-06-05.locked-matrix-and-claims-v1"
+VALIDATOR_VERSION = "2026-06-05.mission-claims-v1"
 
 
 class ValidationFailure(ValueError):
@@ -24,12 +24,44 @@ FORBIDDEN_PATTERNS = [
     r"\bcompliant with planning law\b",
     r"\bsafe for occupancy\b",
     r"\bapproved for construction\b",
+    r"\bapproved for renovation\b",
+    r"\bapproved for operation\b",
+    r"\bauthorized for operation\b",
+    r"\bautorisation satisfied\b",
+    r"\bcommodo[- ]?incommodo compliant\b",
+    r"\bITM compliant\b",
+    r"\bSNSFP compliant\b",
+    r"\bAEV compliant\b",
+    r"\benvironmentally compliant\b",
+    r"\basbestos[- ]?free\b",
+    r"\bpollutant[- ]?free\b",
+    r"\bno asbestos (?:present|detected|found|identified|risk|concern|issue|hazard)\b",
+    r"\bno pollutants (?:present|detected|found|identified|risk|concern|issue|hazard)\b",
+    r"\bHVAC compliant\b",
+    r"\bHVAC is defective\b",
+    r"\bno further inspection required\b",
     r"\bconforme au droit\b",
     r"\bconforme aux regles\b",
     r"\bbrandschutzkonform\b",
     r"\brechtlich konform\b",
     r"\bvoldoet aan de regelgeving\b",
 ]
+
+MISSING_DOCUMENT_CONTEXT_TERMS = {
+    "documentation",
+    "document",
+    "dossier",
+    "evidence",
+    "inventory",
+    "record",
+    "report",
+    "assessment",
+    "certificate",
+    "statement",
+    "claim",
+    "approval",
+    "authorization",
+}
 
 PLANNING_CATEGORIES = {
     "planning_regulatory_context",
@@ -165,8 +197,21 @@ def validate_forbidden_claims(dossier: Dossier | DossierDraft) -> None:
     else:
         text = dossier.model_dump_json()
     for pattern in FORBIDDEN_PATTERNS:
-        if re.search(pattern, text, flags=re.IGNORECASE):
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            if _is_missing_document_context(text, match.start(), match.end()):
+                continue
             raise ValidationFailure(f"Forbidden final engineering/legal claim detected: {pattern}")
+
+
+def _is_missing_document_context(text: str, start: int, end: int) -> bool:
+    before = text[max(0, start - 45) : start].lower()
+    claim = text[start:end].lower()
+    after = text[end : min(len(text), end + 90)].lower()
+    missing_before = re.search(r"\b(no|missing|without|lack(?:s|ing)?|unavailable|not available|not found|not retrieved)\b", before)
+    missing_in_claim = re.search(r"\bno\b", claim)
+    document_after = any(term in after for term in MISSING_DOCUMENT_CONTEXT_TERMS)
+    missing_after = re.search(r"\b(was|were|is|are)?\s*(not found|not available|missing|unavailable|not retrieved)\b", after)
+    return bool(((missing_before or missing_in_claim) and document_after) or (document_after and missing_after))
 
 
 def validate_dossier(
