@@ -94,6 +94,12 @@ def _semantic_review_base_url() -> str:
     return os.getenv("SEMANTIC_REVIEW_BASE_URL", "")
 
 
+def _api_auth_token() -> str | None:
+    if "API_AUTH_TOKEN" not in os.environ:
+        return "dev-demo-token-change-me"
+    return os.getenv("API_AUTH_TOKEN") or None
+
+
 def aws_credentials_available() -> bool:
     if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
         return True
@@ -113,6 +119,8 @@ def aws_credentials_available() -> bool:
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "LuxRenovate Intelligence"
+    api_auth_enabled: bool = _env_flag("API_AUTH_ENABLED", "true")
+    api_auth_token: str | None = _api_auth_token()
     llm_provider: str = _llm_provider()
     llm_mock_mode: bool = _effective_llm_mock_mode(llm_provider, _env_flag("LLM_MOCK_MODE", "true"))
     llm_api_key: str | None = os.getenv("LLM_API_KEY")
@@ -120,6 +128,7 @@ class Settings:
     llm_model: str | None = os.getenv("LLM_MODEL") or None
     llm_response_format: str | None = os.getenv("LLM_RESPONSE_FORMAT") or None
     llm_timeout_seconds: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "180"))
+    upload_max_bytes: int = int(os.getenv("UPLOAD_MAX_BYTES", str(10 * 1024 * 1024)))
     semantic_review_provider: str = _semantic_review_provider()
     semantic_review_api_key: str | None = os.getenv("SEMANTIC_REVIEW_API_KEY")
     semantic_review_base_url: str | None = _semantic_review_base_url()
@@ -157,6 +166,17 @@ class Settings:
     cors_origins: tuple[str, ...] = tuple(
         item.strip()
         for item in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+        if item.strip()
+    )
+    cors_allow_credentials: bool = _env_flag("CORS_ALLOW_CREDENTIALS", "false")
+    cors_methods: tuple[str, ...] = tuple(
+        item.strip().upper()
+        for item in os.getenv("CORS_METHODS", "GET,POST").split(",")
+        if item.strip()
+    )
+    cors_headers: tuple[str, ...] = tuple(
+        item.strip()
+        for item in os.getenv("CORS_HEADERS", "Content-Type,X-API-Key").split(",")
         if item.strip()
     )
 

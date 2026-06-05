@@ -15,7 +15,12 @@ services:
     environment:
       PYTHONUNBUFFERED: "1"
       PYTHONPATH: /app/backend
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-false}
+      CORS_METHODS: ${CORS_METHODS:-GET,POST}
+      CORS_HEADERS: ${CORS_HEADERS:-Content-Type,X-API-Key}
+      API_AUTH_ENABLED: ${API_AUTH_ENABLED:-true}
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN:-dev-demo-token-change-me}
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       LLM_MOCK_MODE: ${LLM_MOCK_MODE:-true}
       LLM_API_KEY: ${LLM_API_KEY:-}
@@ -54,6 +59,7 @@ services:
       - frontend_node_modules:/app/frontend/node_modules
     environment:
       VITE_API_BASE_URL: http://localhost:8000
+      VITE_API_AUTH_TOKEN: ${API_AUTH_TOKEN:-dev-demo-token-change-me}
     depends_on:
       - backend
 

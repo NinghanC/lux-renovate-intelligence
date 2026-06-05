@@ -308,8 +308,15 @@ http://localhost:5173
 With `.env.example` or no custom LLM configuration, Docker Compose starts the backend in deterministic mock generation mode:
 
 ```env
+API_AUTH_ENABLED=true
+API_AUTH_TOKEN=dev-demo-token-change-me
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CORS_ALLOW_CREDENTIALS=false
+CORS_METHODS=GET,POST
+CORS_HEADERS=Content-Type,X-API-Key
 LLM_PROVIDER=mock
 LLM_MOCK_MODE=true
+UPLOAD_MAX_BYTES=10485760
 ```
 
 Docker Compose forwards local `.env` LLM values into the backend container. If you set `LLM_MOCK_MODE=false`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_RESPONSE_FORMAT` locally, Compose uses those values instead of the mock defaults.
@@ -333,6 +340,15 @@ SEMANTIC_REVIEW_RESPONSE_FORMAT=json_object
 The reviewer does not act as a router, planner, or autonomous agent. It produces structured warnings for overclaiming, unsupported interpretations, grounding issues, and absence-of-evidence-to-risk mistakes. Deterministic validator failures still block the dossier; semantic reviewer warnings are shown as review metadata.
 
 No LLM API key is required for the demo. The reviewer can select a Luxembourg demo site, optionally upload a file from `data/sample/upload_examples/`, click **Generate**, and review the readiness matrix, coverage score, missing-information checklist, inspection checklist, evidence panel, source links, and limitations.
+
+Local API routes are protected by a simple API key gate. The default demo token is intentionally non-secret and exists only so the repo runs out of the box:
+
+```powershell
+$headers = @{ "X-API-Key" = "dev-demo-token-change-me" }
+Invoke-RestMethod http://127.0.0.1:8000/api/sites -Headers $headers
+```
+
+Set `API_AUTH_TOKEN` to your own local value before sharing or deploying the app. `/health` remains public for liveness checks. Source file links use the same token as a query parameter because browsers cannot attach custom headers to direct PDF/file links.
 
 Use this framing when presenting the demo: the product is exercising retrieval, evidence normalization, validation, storage, and the full dossier UI; the generated narrative is deterministic demo output so the workflow is reliable without external credentials. Real LLM generation is available by disabling mock mode and setting the LLM environment variables below.
 
@@ -371,12 +387,20 @@ Edit `.env` if you want to run real dossier generation with an external OpenAI-c
 Recommended production-style variables are placeholders, not committed credentials:
 
 ```env
+API_AUTH_ENABLED=true
+API_AUTH_TOKEN=<your-local-api-token>
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CORS_ALLOW_CREDENTIALS=false
+CORS_METHODS=GET,POST
+CORS_HEADERS=Content-Type,X-API-Key
+
 LLM_PROVIDER=<your-openai-compatible-provider>
 LLM_MOCK_MODE=false
 LLM_API_KEY=<your-token>
 LLM_BASE_URL=https://<your-provider-host>/<openai-compatible-path>
 LLM_MODEL=<your-chat-model-or-serving-endpoint-name>
 LLM_RESPONSE_FORMAT=json_object
+UPLOAD_MAX_BYTES=10485760
 
 SEMANTIC_REVIEW_PROVIDER=disabled
 # Optional second LLM:
@@ -493,6 +517,12 @@ Backend health and docs:
 ```text
 GET http://localhost:8000/health
 GET http://localhost:8000/docs
+```
+
+`/health` is a public liveness endpoint and intentionally returns only minimal status. Detailed provider/config diagnostics are protected by the API key:
+
+```text
+GET /api/diagnostics
 ```
 
 Main API routes:

@@ -1,6 +1,19 @@
 import type { DemoSite, Dossier, RetrievedEvidence, SiteContext, SiteGeoJsonResponse } from "../types/dossier";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_AUTH_TOKEN = import.meta.env.VITE_API_AUTH_TOKEN ?? "dev-demo-token-change-me";
+
+function authHeaders(headers?: HeadersInit): Headers {
+  const result = new Headers(headers);
+  if (API_AUTH_TOKEN) {
+    result.set("X-API-Key", API_AUTH_TOKEN);
+  }
+  return result;
+}
+
+function authQuery(): string {
+  return API_AUTH_TOKEN ? `api_key=${encodeURIComponent(API_AUTH_TOKEN)}` : "";
+}
 
 export type GenerateDossierOptions = {
   query?: string;
@@ -10,7 +23,10 @@ export type GenerateDossierOptions = {
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: authHeaders(options?.headers)
+  });
   if (!response.ok) {
     let detail = `HTTP ${response.status}`;
     try {
@@ -74,5 +90,6 @@ export async function generateDossier(siteId: string, options: GenerateDossierOp
 
 export function getDocumentSourceUrl(sourceId: string, page?: number | null): string {
   const pageHash = page ? `#page=${page}` : "";
-  return `${API_BASE_URL}/api/sources/${encodeURIComponent(sourceId)}/file${pageHash}`;
+  const query = authQuery();
+  return `${API_BASE_URL}/api/sources/${encodeURIComponent(sourceId)}/file${query ? `?${query}` : ""}${pageHash}`;
 }

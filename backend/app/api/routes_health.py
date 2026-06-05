@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.core.auth import require_api_key
 from app.core.config import settings
 
 
@@ -8,6 +9,14 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health")
 def health() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+    }
+
+
+@router.get("/api/diagnostics", dependencies=[Depends(require_api_key)])
+def diagnostics() -> dict[str, object]:
     return {
         "status": "ok",
         "app": settings.app_name,

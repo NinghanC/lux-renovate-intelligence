@@ -1,27 +1,38 @@
 import hashlib
 import json
+import re
+from pathlib import Path
 
 from app.core.paths import DOSSIERS_DIR
 from app.models.schemas import Dossier
 
 
 DOSSIER_CACHE_INDEX_PATH = DOSSIERS_DIR / "cache_index.json"
+DOSSIER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+CACHE_KEY_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 
 
 class DossierNotFoundError(ValueError):
     pass
 
 
+class InvalidDossierIdError(ValueError):
+    pass
+
+
 def save_dossier(dossier: Dossier) -> None:
     DOSSIERS_DIR.mkdir(parents=True, exist_ok=True)
-    (DOSSIERS_DIR / f"{dossier.dossier_id}.json").write_text(
+    _dossier_path(dossier.dossier_id).write_text(
         dossier.model_dump_json(indent=2),
         encoding="utf-8",
     )
 
 
 def load_dossier(dossier_id: str) -> Dossier:
-    path = DOSSIERS_DIR / f"{dossier_id}.json"
+    try:
+        path = _dossier_path(dossier_id)
+    except InvalidDossierIdError as exc:
+        raise DossierNotFoundError(f"Unknown dossier: {dossier_id}") from exc
     if not path.exists():
         raise DossierNotFoundError(f"Unknown dossier: {dossier_id}")
     return Dossier.model_validate_json(path.read_text(encoding="utf-8"))
@@ -33,6 +44,8 @@ def cache_key_for_signature(signature: dict) -> str:
 
 
 def load_cached_dossier(cache_key: str) -> Dossier | None:
+    if not _valid_cache_key(cache_key):
+        return None
     index = _read_cache_index()
     dossier_id = index.get(cache_key, {}).get("dossier_id")
     if not dossier_id:
@@ -44,6 +57,8 @@ def load_cached_dossier(cache_key: str) -> Dossier | None:
 
 
 def save_dossier_cache(cache_key: str, dossier: Dossier, signature: dict) -> None:
+    if not _valid_cache_key(cache_key):
+        raise ValueError("Invalid dossier cache key.")
     index = _read_cache_index()
     index[cache_key] = {
         "dossier_id": dossier.dossier_id,
@@ -60,3 +75,17 @@ def _read_cache_index() -> dict:
         return json.loads(DOSSIER_CACHE_INDEX_PATH.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def _dossier_path(dossier_id: str) -> Path:
+    if not DOSSIER_ID_PATTERN.fullmatch(dossier_id):
+        raise InvalidDossierIdError("Dossier ID contains unsafe characters.")
+    base = DOSSIERS_DIR.resolve()
+    path = (base / f"{dossier_id}.json").resolve()
+    if base != path.parent:
+        raise InvalidDossierIdError("Dossier path escapes the dossier directory.")
+    return path
+
+
+def _valid_cache_key(cache_key: str) -> bool:
+    return bool(CACHE_KEY_PATTERN.fullmatch(cache_key))

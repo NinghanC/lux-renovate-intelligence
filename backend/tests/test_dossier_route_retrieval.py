@@ -12,6 +12,9 @@ from app.services.semantic_reviewer import SEMANTIC_REVIEW_VERSION
 from app.services.taxonomy import TAXONOMY_VERSION, taxonomy_fingerprint
 
 
+AUTH_HEADERS = {"X-API-Key": "dev-demo-token-change-me"}
+
+
 class DummyIngestion:
     def load_generate_chunks(self, **kwargs):
         return []
@@ -87,7 +90,11 @@ def test_generate_without_query_uses_purpose_based_retrieval(monkeypatch):
     monkeypatch.setattr(routes_dossiers, "save_dossier", lambda dossier: None)
     monkeypatch.setattr(routes_dossiers, "save_dossier_cache", lambda cache_key, dossier, signature: None)
 
-    response = TestClient(app).post("/api/dossiers/generate", json={"site_id": "demo_lux_laangfur_001"})
+    response = TestClient(app).post(
+        "/api/dossiers/generate",
+        headers=AUTH_HEADERS,
+        json={"site_id": "demo_lux_laangfur_001"},
+    )
 
     assert response.status_code == 200
     assert dummy_retriever.used_purposes
@@ -107,7 +114,11 @@ def test_generate_uses_cached_dossier_when_signature_matches(monkeypatch):
     monkeypatch.setattr(routes_dossiers, "generator", DummyGenerator())
     monkeypatch.setattr(routes_dossiers, "load_cached_dossier", lambda cache_key: cached)
 
-    response = TestClient(app).post("/api/dossiers/generate", json={"site_id": "demo_lux_laangfur_001"})
+    response = TestClient(app).post(
+        "/api/dossiers/generate",
+        headers=AUTH_HEADERS,
+        json={"site_id": "demo_lux_laangfur_001"},
+    )
 
     assert response.status_code == 200
     assert response.json()["cache_hit"] is True
@@ -151,6 +162,7 @@ def test_generate_with_advanced_options_uses_custom_query_and_bypasses_cache(mon
 
     response = TestClient(app).post(
         "/api/dossiers/generate",
+        headers=AUTH_HEADERS,
         json={
             "site_id": "demo_lux_laangfur_001",
             "query": "roof condition and permit constraints",

@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from app.core.config import settings
 from app.core.paths import RAW_PLANNING_DIR, RAW_UPLOADS_DIR
 from app.models.schemas import RetrievedEvidence, SourceRecordPublic, UploadResponse
 from app.services.document_retriever import DocumentRetriever
@@ -16,12 +17,38 @@ router = APIRouter(prefix="/api", tags=["documents"])
 resolver = SiteResolver()
 retriever = DocumentRetriever()
 source_registry = SourceRegistry()
+MAX_UPLOAD_BYTES = settings.upload_max_bytes
+UPLOAD_READ_CHUNK_BYTES = 1024 * 1024
+
+
+class UploadTooLargeError(ValueError):
+    pass
 
 
 def _is_allowed_source_path(path: Path) -> bool:
     resolved = path.resolve()
     allowed_roots = [RAW_PLANNING_DIR.resolve(), RAW_UPLOADS_DIR.resolve()]
     return any(resolved == root or root in resolved.parents for root in allowed_roots)
+
+
+async def _read_upload_with_limit(
+    file: UploadFile,
+    *,
+    max_bytes: int | None = None,
+    chunk_bytes: int = UPLOAD_READ_CHUNK_BYTES,
+) -> bytes:
+    limit = MAX_UPLOAD_BYTES if max_bytes is None else max_bytes
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(chunk_bytes)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            raise UploadTooLargeError(f"Upload exceeds the {limit} byte limit.")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 @router.post("/documents/upload", response_model=UploadResponse)
@@ -35,7 +62,7 @@ async def upload_document(
         resolved_commune = commune
         if site_id and not resolved_commune:
             resolved_commune = resolver.get_site(site_id).commune
-        content = await file.read()
+        content = await _read_upload_with_limit(file)
         return save_and_chunk_upload(
             filename=file.filename or "uploaded_document",
             content=content,
@@ -43,6 +70,8 @@ async def upload_document(
             commune=resolved_commune or "uploaded",
             source_subtype=source_subtype,
         )
+    except UploadTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (ValueError, SiteNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
