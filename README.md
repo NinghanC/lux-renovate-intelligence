@@ -1,6 +1,6 @@
 # LuxRenovate Intelligence
 
-LuxRenovate Intelligence is a Luxembourg-first MVP for the SECO AI & Data Engineer take-home challenge. It helps prepare an evidence-backed renovation readiness dossier for existing buildings when original records, plans, assessments, and technical documentation may be incomplete or unreliable.
+LuxRenovate Intelligence is a Luxembourg-first MVP for preparing an evidence-backed renovation readiness dossier for existing buildings when original records, plans, assessments, and technical documentation may be incomplete or unreliable.
 
 The product is not a generic RAG chatbot. It is a site-centric workflow: a user selects a Luxembourg demo site, optionally uploads supporting documents, generates a dossier, and reviews what is known, what is missing, what should be checked on site, and which evidence supports each finding.
 
