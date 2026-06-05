@@ -274,7 +274,7 @@ The main AI-related implementation points are:
 
 The LLM is not treated as the source of truth. It transforms retrieved evidence into a structured, reviewable dossier. The system still requires human validation for engineering, structural, fire-safety, legal, and compliance questions.
 
-A dedicated evaluation layer is not part of the current MVP implementation. It is planned as a future layer to measure retrieval quality, generation stability, validation failures, regression risk, and user-facing usefulness across repeated dossier generations.
+The MVP includes an offline evaluation layer for deterministic regression and semantic boundary checks. It runs in mock mode without cloud credentials and measures retrieval source coverage, rule-derived matrix behavior, validator outcomes, dossier consistency, and dangerous overclaiming boundaries. See `docs/evaluation.md`.
 
 ---
 
@@ -500,7 +500,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 - use production OCR for scanned drawings, reports, and image-heavy PDFs;
 - use managed vector search and monitored retrieval pipelines;
 - expand the readiness rule engine with versioned policies, confidence thresholds, and reviewer-tunable rule packs;
-- add a dedicated evaluation layer for retrieval quality, generation quality, validation quality, UX usefulness, and regression testing;
+- expand the evaluation layer with human-reviewed labels, retrieval precision/recall, prompt/model regression tracking, and user-facing usefulness checks;
 - integrate SECO historical inspection reports, defect observations, photos, measurements, drawings, and project metadata.
 
 ---
@@ -518,7 +518,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 ### Month 2: Strengthen accuracy, stability, rule logic, and evaluation
 
 - Build a small evaluation set with representative demo dossiers.
-- Add a dedicated evaluation layer for retrieval quality, generation quality, validation behavior, and end-to-end dossier consistency.
+- Expand the evaluation layer for retrieval quality, generation quality, validation behavior, and end-to-end dossier consistency.
 - Add retrieval evaluation: correct source, correct commune, correct page, correct evidence role.
 - Add generation evaluation: required evidence references, no forbidden claims, stable limitations, checklist relevance.
 - Add rule-engine evaluation: whether each readiness-matrix status is consistent with the available evidence and missing-information rules.

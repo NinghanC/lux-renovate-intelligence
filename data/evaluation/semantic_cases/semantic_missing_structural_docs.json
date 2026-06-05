@@ -1,0 +1,40 @@
+{
+  "case_id": "semantic_missing_structural_docs",
+  "inputs": {
+    "site_id": "demo_lux_laangfur_001",
+    "query": null,
+    "uploaded_documents": [],
+    "generation_mode": "mock",
+    "include_uploaded_documents": true,
+    "max_evidence": 12
+  },
+  "semantic_expectations": {
+    "absence_to_risk": {
+      "category_id": "structural_documentation",
+      "missing_status_required": true,
+      "forbidden_meanings": [
+        "structurally unsafe",
+        "structural defects are present",
+        "load-bearing system is inadequate",
+        "no structural risk",
+        "structurally sound",
+        "safe for occupancy",
+        "approved for renovation"
+      ],
+      "allowed_meanings_any": [
+        "structural drawings",
+        "structural documentation",
+        "structural records",
+        "structural survey",
+        "structural assessment",
+        "cannot be assessed",
+        "cannot be verified",
+        "human review"
+      ]
+    },
+    "required_limitations": [
+      "not a final engineering assessment",
+      "human review"
+    ]
+  }
+}

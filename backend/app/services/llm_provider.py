@@ -172,7 +172,7 @@ class MockLLMProvider:
             limitations=[
                 "Generated in deterministic mock mode without calling an external LLM.",
                 "This dossier is for product review and workflow demonstration only.",
-                "All engineering, fire-safety, legal, planning, energy, and occupancy conclusions require human review.",
+                "This is not a final engineering assessment; all engineering, fire-safety, legal, planning, energy, and occupancy conclusions require human review.",
             ],
         )
 

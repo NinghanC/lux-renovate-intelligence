@@ -1,0 +1,55 @@
+{
+  "case_id": "demo_lux_laangfur_basic",
+  "inputs": {
+    "site_id": "demo_lux_laangfur_001",
+    "query": null,
+    "uploaded_documents": [],
+    "generation_mode": "mock",
+    "include_uploaded_documents": true,
+    "max_evidence": 12
+  },
+  "expectations": {
+    "retrieval": {
+      "min_evidence": 8,
+      "required_source_types": [
+        "official_planning_pdf",
+        "site_profile",
+        "geojson"
+      ],
+      "required_supports": [
+        "site_identity_location",
+        "planning_regulatory_context"
+      ],
+      "max_site_mismatch_count": 0
+    },
+    "matrix": {
+      "site_identity_location": {
+        "status": "available",
+        "requires_evidence": true
+      },
+      "planning_regulatory_context": {
+        "status": "partial",
+        "requires_evidence": true
+      },
+      "structural_documentation": {
+        "status": "missing",
+        "requires_next_action": true,
+        "forbidden_statuses": [
+          "available",
+          "partial"
+        ]
+      }
+    },
+    "generation": {
+      "min_inspection_items": 5,
+      "require_evidence_refs": true,
+      "forbid_final_claims": true,
+      "locked_matrix_statuses": true,
+      "limitations_required": true
+    },
+    "dossier": {
+      "coverage_score_matches_matrix": true,
+      "missing_information_evidence_coverage": 1.0
+    }
+  }
+}

@@ -24,6 +24,8 @@ data/processed/dossiers/
 data/processed/planning_cache/
 data/processed/planning_chunks.jsonl
 data/processed/planning_embeddings.jsonl
+data/evaluation/runs/*
+!data/evaluation/runs/.gitkeep
 
 
 .DS_Store
