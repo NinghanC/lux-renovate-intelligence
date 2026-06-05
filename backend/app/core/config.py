@@ -13,6 +13,10 @@ def _llm_provider() -> str:
     return os.getenv("LLM_PROVIDER", "mock")
 
 
+def _effective_llm_mock_mode(provider: str, configured_mock_mode: bool) -> bool:
+    return provider == "mock" or configured_mock_mode
+
+
 def _env_flag(name: str, default: str = "false") -> bool:
     return os.getenv(name, default).lower() in {"1", "true", "yes", "on"}
 
@@ -110,7 +114,7 @@ def aws_credentials_available() -> bool:
 class Settings:
     app_name: str = "LuxRenovate Intelligence"
     llm_provider: str = _llm_provider()
-    llm_mock_mode: bool = _env_flag("LLM_MOCK_MODE")
+    llm_mock_mode: bool = _effective_llm_mock_mode(llm_provider, _env_flag("LLM_MOCK_MODE", "true"))
     llm_api_key: str | None = os.getenv("LLM_API_KEY")
     llm_base_url: str | None = _llm_base_url()
     llm_model: str | None = os.getenv("LLM_MODEL") or None
