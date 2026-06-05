@@ -2,6 +2,13 @@ import type { DemoSite, Dossier, RetrievedEvidence, SiteContext, SiteGeoJsonResp
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+export type GenerateDossierOptions = {
+  query?: string;
+  includeUploadedDocuments?: boolean;
+  maxEvidence?: number;
+  forceRefresh?: boolean;
+};
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, options);
   if (!response.ok) {
@@ -49,11 +56,18 @@ export function uploadDocument(siteId: string, file: File, sourceSubtype?: strin
   });
 }
 
-export async function generateDossier(siteId: string): Promise<Dossier> {
+export async function generateDossier(siteId: string, options: GenerateDossierOptions = {}): Promise<Dossier> {
+  const query = options.query?.trim();
   const payload = await request<{ dossier: Dossier }>("/api/dossiers/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ site_id: siteId })
+    body: JSON.stringify({
+      site_id: siteId,
+      query: query || undefined,
+      include_uploaded_documents: options.includeUploadedDocuments ?? true,
+      max_evidence: options.maxEvidence ?? 12,
+      force_refresh: options.forceRefresh ?? false
+    })
   });
   return payload.dossier;
 }

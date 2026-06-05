@@ -22,7 +22,8 @@ body {
 
 button,
 select,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -109,6 +110,22 @@ select {
   text-overflow: ellipsis;
 }
 
+textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid #cbd5da;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2933;
+  line-height: 1.45;
+}
+
+textarea::placeholder {
+  color: #7a8790;
+}
+
 .site-card,
 .panel,
 .dossier-hero,
@@ -167,10 +184,67 @@ select {
   background: #fbfcfc;
 }
 
-.upload-panel label {
+.upload-panel label,
+.field span {
   color: #3d4a50;
   font-size: 13px;
   font-weight: 750;
+}
+
+.advanced-options {
+  display: grid;
+  gap: 10px;
+}
+
+.advanced-toggle {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #cbd5da;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #3d4a50;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.advanced-toggle.active {
+  border-color: #0f766e;
+  background: #edf7f5;
+  color: #0f766e;
+}
+
+.advanced-fields {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #dbe1e5;
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.checkbox-field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+  color: #3d4a50;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.checkbox-field input {
+  width: 16px;
+  height: 16px;
+  accent-color: #0f766e;
 }
 
 .file-select-button {

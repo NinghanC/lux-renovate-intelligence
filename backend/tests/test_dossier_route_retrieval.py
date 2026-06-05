@@ -109,3 +109,56 @@ def test_generate_uses_cached_dossier_when_signature_matches(monkeypatch):
     assert response.json()["dossier"]["dossier_id"] == "dos_test"
     assert not dummy_retriever.used_purposes
     assert not dummy_retriever.used_query
+
+
+def test_generate_with_advanced_options_uses_custom_query_and_bypasses_cache(monkeypatch):
+    class CapturingIngestion(DummyIngestion):
+        def __init__(self):
+            self.load_kwargs = None
+            self.uploaded_signature_kwargs = None
+
+        def load_generate_chunks(self, **kwargs):
+            self.load_kwargs = kwargs
+            return []
+
+        def uploaded_signature(self, **kwargs):
+            self.uploaded_signature_kwargs = kwargs
+            return []
+
+    class CapturingRetriever(DummyRetriever):
+        def __init__(self):
+            super().__init__()
+            self.query_kwargs = None
+
+        def retrieve_from_chunks(self, **kwargs):
+            self.query_kwargs = kwargs
+            return super().retrieve_from_chunks(**kwargs)
+
+    capturing_ingestion = CapturingIngestion()
+    capturing_retriever = CapturingRetriever()
+    monkeypatch.setattr(routes_dossiers, "ingestion", capturing_ingestion)
+    monkeypatch.setattr(routes_dossiers, "retriever", capturing_retriever)
+    monkeypatch.setattr(routes_dossiers, "generator", DummyGenerator())
+    monkeypatch.setattr(routes_dossiers, "source_registry", DummySourceRegistry())
+    monkeypatch.setattr(routes_dossiers, "load_cached_dossier", lambda cache_key: (_ for _ in ()).throw(AssertionError("cache should be bypassed")))
+    monkeypatch.setattr(routes_dossiers, "save_dossier", lambda dossier: None)
+    monkeypatch.setattr(routes_dossiers, "save_dossier_cache", lambda cache_key, dossier, signature: None)
+
+    response = TestClient(app).post(
+        "/api/dossiers/generate",
+        json={
+            "site_id": "demo_lux_laangfur_001",
+            "query": "roof condition and permit constraints",
+            "include_uploaded_documents": False,
+            "max_evidence": 8,
+            "force_refresh": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert capturing_retriever.used_query
+    assert not capturing_retriever.used_purposes
+    assert capturing_retriever.query_kwargs["query"] == "roof condition and permit constraints"
+    assert capturing_retriever.query_kwargs["limit"] == 8
+    assert capturing_ingestion.load_kwargs["include_uploaded_documents"] is False
+    assert capturing_ingestion.uploaded_signature_kwargs["include_uploaded_documents"] is False

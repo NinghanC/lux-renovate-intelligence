@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, MapPinPlus, Maximize2, Play, Trash2, X, UploadCloud } from "lucide-react";
+import { AlertTriangle, Loader2, MapPinPlus, Maximize2, Play, SlidersHorizontal, Trash2, X, UploadCloud } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import {
@@ -183,6 +183,11 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [uploadPanelOpen, setUploadPanelOpen] = useState(false);
   const [uploadSubtype, setUploadSubtype] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [investigationQuestion, setInvestigationQuestion] = useState("");
+  const [includeUploadedDocuments, setIncludeUploadedDocuments] = useState(true);
+  const [maxEvidence, setMaxEvidence] = useState(12);
+  const [forceRefresh, setForceRefresh] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedSite = useMemo(
@@ -241,7 +246,12 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const generated = await generateDossier(selectedSiteId);
+      const generated = await generateDossier(selectedSiteId, {
+        query: investigationQuestion,
+        includeUploadedDocuments,
+        maxEvidence,
+        forceRefresh
+      });
       setDossier(generated);
       setActiveView("matrix");
       setHighlightedEvidenceId(null);
@@ -312,6 +322,58 @@ function App() {
             <span>{selectedSite.description}</span>
           </div>
         ) : null}
+
+        <div className="advanced-options">
+          <button
+            className={`advanced-toggle ${advancedOpen ? "active" : ""}`}
+            type="button"
+            onClick={() => setAdvancedOpen((open) => !open)}
+            aria-expanded={advancedOpen}
+          >
+            <SlidersHorizontal size={16} />
+            Advanced options
+          </button>
+          {advancedOpen ? (
+            <div className="advanced-fields">
+              <label className="field">
+                <span>Investigation question</span>
+                <textarea
+                  rows={3}
+                  value={investigationQuestion}
+                  onChange={(event) => setInvestigationQuestion(event.target.value)}
+                  placeholder="Fire safety documentation, roof condition, permit constraints..."
+                />
+              </label>
+              <label className="field">
+                <span>Max evidence</span>
+                <select
+                  value={maxEvidence}
+                  onChange={(event) => setMaxEvidence(Number(event.target.value))}
+                >
+                  <option value={8}>8</option>
+                  <option value={12}>12</option>
+                  <option value={20}>20</option>
+                </select>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={includeUploadedDocuments}
+                  onChange={(event) => setIncludeUploadedDocuments(event.target.checked)}
+                />
+                <span>Include uploaded docs</span>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={forceRefresh}
+                  onChange={(event) => setForceRefresh(event.target.checked)}
+                />
+                <span>Force refresh</span>
+              </label>
+            </div>
+          ) : null}
+        </div>
 
         <div className="actions">
           <button
