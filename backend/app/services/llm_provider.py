@@ -96,10 +96,13 @@ class MockLLMProvider:
         site_context = payload.get("site_context", {})
         taxonomy = payload.get("taxonomy", [])
         evidence = payload.get("evidence", [])
+        locked_matrix = payload.get("readiness_matrix_locked") or []
         if not taxonomy:
             raise LLMGenerationError("Mock LLM prompt did not include taxonomy.")
         if not evidence:
             raise LLMGenerationError("Mock LLM prompt did not include evidence.")
+        if not locked_matrix:
+            raise LLMGenerationError("Mock LLM prompt did not include locked readiness matrix.")
 
         fallback_ref = evidence[0]["evidence_id"]
         site_refs = [
@@ -116,21 +119,14 @@ class MockLLMProvider:
         address = site_context.get("address") or "the selected site"
         commune = site_context.get("commune") or "the commune"
 
-        readiness_matrix = [
-            _mock_matrix_item(
-                category=category,
-                site_refs=site_refs,
-                planning_refs=official_planning_refs,
-            )
-            for category in taxonomy
-        ]
+        readiness_matrix = [_mock_matrix_item(item) for item in locked_matrix]
         missing_items = [
             MissingInformationItem(
                 item_id=f"missing_{index:03d}",
                 category_id=item.category_id,
-                description=f"Demo mode did not find enough verified documentation for {item.label.lower()}.",
+                description=f"Rule-derived missing information for {item.label.lower()}: {item.summary}",
                 evidence_refs=item.evidence_refs,
-                recommended_next_action=f"Collect or verify source documents for {item.label.lower()} before design decisions.",
+                recommended_next_action=item.recommended_next_action,
             )
             for index, item in enumerate(readiness_matrix, start=1)
             if item.status in {"missing", "unknown"}
@@ -187,39 +183,16 @@ def create_llm_provider() -> LLMProvider | MockLLMProvider:
     return LLMProvider()
 
 
-def _mock_matrix_item(
-    *,
-    category: dict[str, Any],
-    site_refs: list[str],
-    planning_refs: list[str],
-) -> ReadinessMatrixItem:
-    category_id = category["category_id"]
-    label = category["label"]
-    if category_id == "site_identity_location":
-        return ReadinessMatrixItem(
-            category_id=category_id,
-            label=label,
-            status="available",
-            summary="Demo evidence includes site identity, commune, coordinate, and nearby-context information.",
-            evidence_refs=site_refs,
-            recommended_next_action="Confirm address, parcel references, and coordinate precision with official records.",
-        )
-    if category_id == "planning_regulatory_context" and planning_refs:
-        return ReadinessMatrixItem(
-            category_id=category_id,
-            label=label,
-            status="partial",
-            summary="Official planning evidence was retrieved, but it still needs scope-specific interpretation.",
-            evidence_refs=planning_refs[:2],
-            recommended_next_action="Review the cited planning material against the proposed renovation works.",
-        )
+def _mock_matrix_item(locked_item: dict[str, Any]) -> ReadinessMatrixItem:
     return ReadinessMatrixItem(
-        category_id=category_id,
-        label=label,
-        status="missing",
-        summary=f"Demo mode did not identify verified source material sufficient for {label.lower()}.",
-        evidence_refs=[],
-        recommended_next_action=f"Request, upload, or inspect documentation covering {label.lower()}.",
+        category_id=locked_item["category_id"],
+        label=locked_item["label"],
+        status=locked_item["status"],
+        summary=str(locked_item.get("status_reason") or "Rule-derived readiness status requires human review."),
+        evidence_refs=list(locked_item.get("evidence_refs") or []),
+        recommended_next_action=str(
+            locked_item.get("recommended_next_action_seed") or "Collect and verify supporting evidence."
+        ),
     )
 
 

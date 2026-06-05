@@ -7,6 +7,7 @@ from app.models.schemas import (
     DossierDraft,
     EvidenceObject,
     EvidenceType,
+    MissingInformationItem,
     ReadinessTaxonomyItem,
     SiteContext,
 )
@@ -17,9 +18,11 @@ from app.services.evidence_validator import (
     validate_evidence_refs,
     validate_forbidden_claims,
     validate_matrix_evidence_requirements,
+    validate_matrix_matches_rule_output,
     validate_taxonomy_complete,
 )
 from app.services.llm_provider import LLMProvider, MockLLMProvider, create_llm_provider
+from app.services.readiness_rule_engine import RuleMatrixItem, build_rule_matrix, build_rule_missing_items
 from app.services.source_registry import SourceRegistry
 
 
@@ -28,7 +31,9 @@ Use only the provided site context, taxonomy, and evidence. Do not use outside f
 Do not make final structural safety, fire safety, legal, planning-compliance, energy, or occupancy decisions.
 Return only one valid JSON object matching the requested schema. Do not wrap it in Markdown. Every finding and checklist item must cite evidence_refs.
 All human-facing narrative fields must be written in English. Keep IDs, enum values, source names, page numbers, and evidence IDs unchanged.
-If evidence is missing, mark the relevant taxonomy item as missing or unknown and explain the next verification step in English."""
+The readiness matrix status and evidence_refs are rule-derived and locked.
+Do not change readiness_matrix category_id, label, status, or evidence_refs.
+Only write human-readable summaries, next actions, findings, risk signals, checklist items, and limitations."""
 
 
 def build_user_prompt(
@@ -36,6 +41,7 @@ def build_user_prompt(
     site_context: SiteContext,
     evidence: list[EvidenceObject],
     taxonomy: list[ReadinessTaxonomyItem],
+    rule_matrix: list[RuleMatrixItem],
 ) -> str:
     schema_hint = {
         "building_summary": "string",
@@ -52,11 +58,11 @@ def build_user_prompt(
         ],
         "readiness_matrix": [
             {
-                "category_id": "must be one of taxonomy category_id values",
-                "label": "taxonomy label",
-                "status": "available | partial | missing | unknown | not_applicable",
+                "category_id": "copy exactly from readiness_matrix_locked",
+                "label": "copy exactly from readiness_matrix_locked",
+                "status": "copy exactly from readiness_matrix_locked",
                 "summary": "string",
-                "evidence_refs": ["ev_..."],
+                "evidence_refs": "copy exactly from readiness_matrix_locked",
                 "recommended_next_action": "string",
             }
         ],
@@ -113,11 +119,15 @@ def build_user_prompt(
         {
             "site_context": site_context.model_dump(),
             "taxonomy": [item.model_dump() for item in taxonomy],
+            "readiness_matrix_locked": [item.model_dump() for item in rule_matrix],
             "allowed_evidence_ids": [item.evidence_id for item in evidence],
             "evidence": compact_evidence,
             "required_schema": schema_hint,
             "requirements": [
-                "Include every taxonomy category exactly once in readiness_matrix.",
+                "Copy every readiness_matrix_locked item into readiness_matrix exactly once.",
+                "Do not change readiness_matrix category_id, label, status, or evidence_refs.",
+                "Use readiness_matrix_locked status_reason to write each readiness_matrix summary.",
+                "Use readiness_matrix_locked recommended_next_action_seed to write each readiness_matrix recommended_next_action.",
                 "For missing categories, recommended_next_action must be specific and non-empty.",
                 "Do not claim the building is safe, compliant, approved, or free of risk.",
                 "Make inspection_checklist useful for old-building renovation preparation.",
@@ -148,12 +158,18 @@ class DossierGenerator:
         evidence: list[EvidenceObject],
         taxonomy: list[ReadinessTaxonomyItem],
     ) -> Dossier:
+        rule_matrix = build_rule_matrix(
+            site_context=site_context,
+            evidence=evidence,
+            taxonomy=taxonomy,
+        )
         draft = self.llm_provider.generate_draft(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=build_user_prompt(
                 site_context=site_context,
                 evidence=evidence,
                 taxonomy=taxonomy,
+                rule_matrix=rule_matrix,
             ),
         )
         return build_validated_dossier(
@@ -161,6 +177,7 @@ class DossierGenerator:
             evidence=evidence,
             taxonomy=taxonomy,
             draft=draft,
+            rule_matrix=rule_matrix,
             source_registry=self.source_registry,
         )
 
@@ -171,10 +188,14 @@ def build_validated_dossier(
     evidence: list[EvidenceObject],
     taxonomy: list[ReadinessTaxonomyItem],
     draft: DossierDraft,
+    rule_matrix: list[RuleMatrixItem] | None = None,
     source_registry: SourceRegistry | None = None,
 ) -> Dossier:
     validate_taxonomy_complete(draft)
     normalize_draft_evidence_refs(draft, evidence)
+    if rule_matrix is not None:
+        validate_matrix_matches_rule_output(draft, rule_matrix)
+        ensure_rule_missing_information(draft, rule_matrix)
     validate_evidence_refs(draft, evidence)
     validate_matrix_evidence_requirements(draft)
     sources = source_registry.list_sources() if source_registry else None
@@ -240,6 +261,16 @@ def normalize_draft_evidence_refs(draft: DossierDraft, evidence: list[EvidenceOb
         signal.evidence_refs = normalize(signal.evidence_refs)
     for item in draft.inspection_checklist:
         item.evidence_refs = normalize(item.evidence_refs)
+
+
+def ensure_rule_missing_information(draft: DossierDraft, rule_matrix: list[RuleMatrixItem]) -> None:
+    existing_categories = {item.category_id for item in draft.missing_information_checklist}
+    for item in build_rule_missing_items(rule_matrix):
+        category_id = str(item["category_id"])
+        if category_id in existing_categories:
+            continue
+        draft.missing_information_checklist.append(MissingInformationItem.model_validate(item))
+        existing_categories.add(category_id)
 
 
 def build_missing_information_evidence(

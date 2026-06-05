@@ -17,8 +17,10 @@ from app.services.evidence_validator import (
     validate_evidence_source_integrity,
     validate_forbidden_claims,
     validate_claim_support,
+    validate_matrix_matches_rule_output,
     validate_taxonomy_complete,
 )
+from app.services.readiness_rule_engine import RuleMatrixItem
 from app.services.taxonomy import load_taxonomy
 
 
@@ -156,6 +158,25 @@ def test_chunk_refs_are_normalized_to_evidence_ids():
     normalize_draft_evidence_refs(dossier_draft, evidence())
 
     assert dossier_draft.inspection_checklist[0].evidence_refs == ["ev_001"]
+
+
+def test_rule_derived_matrix_status_cannot_be_changed():
+    dossier_draft = draft()
+    rule_matrix = [
+        RuleMatrixItem(
+            category_id=item.category_id,
+            label=item.label,
+            status=item.status,
+            evidence_refs=item.evidence_refs,
+            status_reason="Rule-derived status.",
+            recommended_next_action_seed="Verify evidence.",
+        )
+        for item in dossier_draft.readiness_matrix
+    ]
+    dossier_draft.readiness_matrix[0].status = "available"
+
+    with pytest.raises(ValidationFailure, match="status"):
+        validate_matrix_matches_rule_output(dossier_draft, rule_matrix)
 
 
 @pytest.mark.parametrize(

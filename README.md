@@ -230,13 +230,13 @@ Important limitation: the validator reduces unsupported claims, but it does not 
 - **GeoJSON support is intentionally lightweight.** It provides coordinate and distance context, not cadastral, structural, or engineering-grade inference.
 - **The evidence coverage score is not a risk, safety, compliance, or renovation-feasibility score.** It only summarizes evidence availability.
 
-### Current MVP limitation: readiness-matrix rules
+### Deterministic readiness-matrix rules
 
-The current MVP uses the LLM to generate the readiness matrix, then constrains that output with schema validation, evidence-reference validation, source-type checks, taxonomy completeness checks, and forbidden-claim validation. This is acceptable for the take-home MVP because the focus is to demonstrate the end-to-end product workflow.
+The readiness matrix is assigned before generation by a deterministic rule engine. Evidence objects are matched against each taxonomy category by source type, document subtype, evidence role, and selected content terms. The resulting `status` and `evidence_refs` are locked into the prompt.
 
-A future production version should move the readiness-matrix status assignment into a dedicated rule engine before LLM generation. In that design, deterministic evidence-availability rules would first decide whether each category is `available`, `partial`, `missing`, `unknown`, or `not_applicable`. The LLM would then only generate the human-readable summary, rationale, recommended next action, and inspection checklist from that rule-based matrix and the evidence package.
+The LLM, or the deterministic mock generator, only writes the human-readable summaries, recommended next actions, findings, risk signals, checklist items, and limitations around that rule-derived matrix. Validators then verify that the generated dossier did not change any rule-derived matrix category, label, status, or evidence reference. Missing categories also seed missing-information checklist items deterministically.
 
-Example future rule-engine responsibility:
+Implemented control flow:
 
 ```text
 evidence objects
@@ -245,8 +245,6 @@ evidence objects
 -> bounded LLM summary/checklist generation
 -> validation and audit output
 ```
-
-This rule-engine layer is intentionally listed as future work rather than implemented in the current MVP.
 
 ---
 
@@ -501,7 +499,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 - add RBAC, document-level permissions, audit logging, prompt logging, and data-retention policies;
 - use production OCR for scanned drawings, reports, and image-heavy PDFs;
 - use managed vector search and monitored retrieval pipelines;
-- add a dedicated rule engine for readiness-matrix status assignment before LLM generation;
+- expand the readiness rule engine with versioned policies, confidence thresholds, and reviewer-tunable rule packs;
 - add a dedicated evaluation layer for retrieval quality, generation quality, validation quality, UX usefulness, and regression testing;
 - integrate SECO historical inspection reports, defect observations, photos, measurements, drawings, and project metadata.
 
@@ -524,7 +522,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 - Add retrieval evaluation: correct source, correct commune, correct page, correct evidence role.
 - Add generation evaluation: required evidence references, no forbidden claims, stable limitations, checklist relevance.
 - Add rule-engine evaluation: whether each readiness-matrix status is consistent with the available evidence and missing-information rules.
-- Add a first version of the rule-based readiness-matrix engine, so evidence availability determines the matrix status before LLM generation.
+- Expand the rule-based readiness-matrix engine with more document subtypes, confidence handling, and explicit `unknown` / `not_applicable` conditions.
 - Add regression tests for prompts, validators, source-type handling, rule-engine outputs, and sample dossier outputs.
 - Add better monitoring around failed parsing, failed generation, missing evidence, validation errors, and rule-engine conflicts.
 - Expand document subtype classification and matrix consistency checks.

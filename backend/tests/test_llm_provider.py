@@ -1,6 +1,7 @@
 from app.models.schemas import Coordinates, DataQuality, EvidenceObject, EvidenceType, SiteContext
 from app.services.dossier_generator import build_user_prompt, build_validated_dossier
 from app.services.llm_provider import LLMProvider, MockLLMProvider
+from app.services.readiness_rule_engine import build_rule_matrix
 from app.services.taxonomy import load_taxonomy
 
 
@@ -50,15 +51,17 @@ def test_mock_llm_provider_generates_validated_dossier():
     context = site_context()
     items = evidence()
     taxonomy = load_taxonomy()
+    rule_matrix = build_rule_matrix(site_context=context, evidence=items, taxonomy=taxonomy)
     draft = MockLLMProvider().generate_draft(
         system_prompt="system",
-        user_prompt=build_user_prompt(site_context=context, evidence=items, taxonomy=taxonomy),
+        user_prompt=build_user_prompt(site_context=context, evidence=items, taxonomy=taxonomy, rule_matrix=rule_matrix),
     )
     dossier = build_validated_dossier(
         site_context=context,
         evidence=items,
         taxonomy=taxonomy,
         draft=draft,
+        rule_matrix=rule_matrix,
         source_registry=None,
     )
 
@@ -67,6 +70,16 @@ def test_mock_llm_provider_generates_validated_dossier():
     assert {item.category_id for item in dossier.readiness_matrix} == {
         item.category_id for item in taxonomy
     }
+    assert [
+        (item.category_id, item.status, item.evidence_refs)
+        for item in dossier.readiness_matrix
+    ] == [
+        (item.category_id, item.status, item.evidence_refs)
+        for item in rule_matrix
+    ]
+    rule_missing_categories = {item.category_id for item in rule_matrix if item.status == "missing"}
+    dossier_missing_categories = {item.category_id for item in dossier.missing_information_checklist}
+    assert rule_missing_categories <= dossier_missing_categories
 
 
 def test_real_llm_provider_requires_configuration():

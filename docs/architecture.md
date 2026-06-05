@@ -8,9 +8,10 @@
 4. Retrieval runs purpose-based queries for planning context, documentation gaps, technical risk, site inspection, and renovation constraints. Each query scores chunks with multilingual BM25 keyword relevance and optional embeddings.
 5. Optional rerank reranks the strongest retrieval candidates when configured. The public demo keeps rerank disabled and uses local keyword retrieval by default.
 6. Retrieved chunks become source-aware `EvidenceObject` records. Site profile and lightweight GeoJSON context are also added as low-risk context evidence.
-7. The default mock generator, or the configured LLM, receives site context, evidence, and taxonomy, then returns a `DossierDraft`.
-8. Validators check schema, required evidence refs for user-facing findings/checklists, source registry links, page ranges, taxonomy completeness, source-type support, and forbidden claims.
-9. Evidence coverage score is calculated by code and the validated dossier is saved locally.
+7. A deterministic readiness rule engine assigns matrix statuses and evidence references from the evidence objects before generation.
+8. The default mock generator, or the configured LLM, receives site context, evidence, taxonomy, and the locked rule-derived matrix, then returns a `DossierDraft`.
+9. Validators check schema, required evidence refs for user-facing findings/checklists, source registry links, page ranges, taxonomy completeness, source-type support, rule-derived matrix consistency, and forbidden claims.
+10. Evidence coverage score is calculated by code and the validated dossier is saved locally.
 
 ## Services
 
@@ -23,7 +24,8 @@
 - `RerankProvider`: optional managed rerank adapter; disabled in the public demo.
 - `MockLLMProvider`: deterministic demo generator for reviewer-friendly local runs without API keys.
 - `LLMProvider`: OpenAI-compatible chat completion adapter for externally configured model endpoints.
-- `DossierGenerator`: prompt assembly, LLM call, and dossier assembly.
+- `ReadinessRuleEngine`: deterministic readiness-matrix status assignment and missing-information seeding.
+- `DossierGenerator`: rule-matrix assembly, prompt assembly, LLM call, and dossier assembly.
 - `EvidenceValidator`: guardrails, source integrity checks, and reference checks.
 - `CoverageCalculator`: deterministic evidence-coverage metric based on matrix statuses.
 

@@ -1,6 +1,7 @@
 import re
 
 from app.models.schemas import Dossier, DossierDraft, EvidenceObject, SourceRecord
+from app.services.readiness_rule_engine import RuleMatrixItem
 from app.services.taxonomy import taxonomy_ids
 
 
@@ -86,6 +87,22 @@ def validate_matrix_evidence_requirements(dossier: Dossier | DossierDraft) -> No
         raise ValidationFailure(
             f"Readiness matrix available/partial categories require evidence refs: {missing_refs}"
         )
+
+
+def validate_matrix_matches_rule_output(draft: DossierDraft, rule_matrix: list[RuleMatrixItem]) -> None:
+    expected_order = [item.category_id for item in rule_matrix]
+    actual_order = [item.category_id for item in draft.readiness_matrix]
+    if actual_order != expected_order:
+        raise ValidationFailure("Readiness matrix does not match rule-derived category order.")
+    expected_by_category = {item.category_id: item for item in rule_matrix}
+    for item in draft.readiness_matrix:
+        expected = expected_by_category[item.category_id]
+        if item.label != expected.label:
+            raise ValidationFailure(f"LLM changed rule-derived label for '{item.category_id}'.")
+        if item.status != expected.status:
+            raise ValidationFailure(f"LLM changed rule-derived status for '{item.category_id}'.")
+        if item.evidence_refs != expected.evidence_refs:
+            raise ValidationFailure(f"LLM changed rule-derived evidence refs for '{item.category_id}'.")
 
 
 def validate_evidence_source_integrity(
