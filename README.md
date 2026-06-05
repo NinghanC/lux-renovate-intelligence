@@ -294,12 +294,14 @@ Then open:
 http://localhost:5173
 ```
 
-Docker Compose starts the backend in deterministic mock generation mode:
+With `.env.example` or no custom LLM configuration, Docker Compose starts the backend in deterministic mock generation mode:
 
 ```env
 LLM_PROVIDER=mock
 LLM_MOCK_MODE=true
 ```
+
+Docker Compose forwards local `.env` LLM values into the backend container. If you set `LLM_MOCK_MODE=false`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_RESPONSE_FORMAT` locally, Compose uses those values instead of the mock defaults.
 
 No LLM API key is required for the demo. The reviewer can select a Luxembourg demo site, optionally upload a file from `data/sample/upload_examples/`, click **Generate**, and review the readiness matrix, coverage score, missing-information checklist, inspection checklist, evidence panel, source links, and limitations.
 
@@ -345,6 +347,7 @@ LLM_MOCK_MODE=false
 LLM_API_KEY=<your-token>
 LLM_BASE_URL=https://<your-provider-host>/<openai-compatible-path>
 LLM_MODEL=<your-chat-model-or-serving-endpoint-name>
+LLM_RESPONSE_FORMAT=json_object
 
 EMBEDDING_BASE_URL=https://<your-provider-host>/<embedding-path>
 EMBEDDING_MODEL=<your-embedding-model-or-serving-endpoint-name>
@@ -357,6 +360,18 @@ OCR_PROVIDER=<your-ocr-provider-or-disabled>
 OCR_MODEL=<your-ocr-model-or-provider-label>
 OCR_AWS_REGION=<your-region-if-applicable>
 ```
+
+For a Databricks OpenAI-compatible serving endpoint, use the workspace serving-endpoints base URL and the serving endpoint name as the model:
+
+```env
+LLM_PROVIDER=openai_compatible
+LLM_MOCK_MODE=false
+LLM_BASE_URL=https://<your-workspace-host>/serving-endpoints
+LLM_MODEL=<your-serving-endpoint-name>
+LLM_RESPONSE_FORMAT=json_object
+```
+
+After changing `.env`, restart the backend process. Environment settings are loaded at process startup.
 
 Embedding, rerank, and OCR are optional. The default local retrieval path uses multilingual BM25.
 
@@ -400,6 +415,17 @@ In the browser:
 7. Open source files from the evidence/source area where available.
 
 With the default mock configuration, step 5 generates a demo dossier without credentials. If you disable mock mode without configuring a real LLM, step 5 returns a clear `llm_not_configured` error while the rest of the app remains usable for reviewing the data pipeline, source registry, site context, uploads, and retrieval flow.
+
+### Evaluation
+
+Run the offline evaluation layer in mock mode:
+
+```powershell
+$env:PYTHONPATH="backend"
+.\.venv\Scripts\python.exe -m app.evaluation.runner --mode mock
+```
+
+The evaluation runner executes two deterministic cases and one semantic boundary case. It checks retrieval source coverage, rule-derived readiness matrix behavior, locked matrix consistency, grounding rates, forbidden final claims, coverage-score consistency, derived missing-information evidence, and the absence-of-evidence-not-risk semantic boundary. Reports are written to `data/evaluation/runs/` and are ignored by git. See `docs/evaluation.md`.
 
 ### 4. Refresh public planning PDFs
 
@@ -500,7 +526,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 - use production OCR for scanned drawings, reports, and image-heavy PDFs;
 - use managed vector search and monitored retrieval pipelines;
 - expand the readiness rule engine with versioned policies, confidence thresholds, and reviewer-tunable rule packs;
-- expand the evaluation layer with human-reviewed labels, retrieval precision/recall, prompt/model regression tracking, and user-facing usefulness checks;
+- expand the evaluation layer with broader semantic cases, human-reviewed labels, retrieval precision/recall, prompt/model regression tracking, real-LLM report-only runs, and user-facing usefulness checks;
 - integrate SECO historical inspection reports, defect observations, photos, measurements, drawings, and project metadata.
 
 ---
@@ -517,11 +543,12 @@ The following MVP components should be rebuilt or replaced in a production versi
 
 ### Month 2: Strengthen accuracy, stability, rule logic, and evaluation
 
-- Build a small evaluation set with representative demo dossiers.
-- Expand the evaluation layer for retrieval quality, generation quality, validation behavior, and end-to-end dossier consistency.
-- Add retrieval evaluation: correct source, correct commune, correct page, correct evidence role.
-- Add generation evaluation: required evidence references, no forbidden claims, stable limitations, checklist relevance.
-- Add rule-engine evaluation: whether each readiness-matrix status is consistent with the available evidence and missing-information rules.
+- Expand the deterministic evaluation set with more representative demo dossiers.
+- Expand retrieval evaluation: correct source, correct commune, correct page, correct evidence role, and labeled expected evidence where stable.
+- Expand generation evaluation: required evidence references, no forbidden claims, stable limitations, checklist relevance, and locked-matrix preservation.
+- Expand rule-engine evaluation: whether each readiness-matrix status is consistent with the available evidence and missing-information rules.
+- Add more semantic regression cases for faithfulness, relevance, actionability, internal consistency, and absence-of-evidence-not-risk boundaries.
+- Add optional real-LLM evaluation runs as report-only outputs for manual review, not CI hard failures.
 - Expand the rule-based readiness-matrix engine with more document subtypes, confidence handling, and explicit `unknown` / `not_applicable` conditions.
 - Add regression tests for prompts, validators, source-type handling, rule-engine outputs, and sample dossier outputs.
 - Add better monitoring around failed parsing, failed generation, missing evidence, validation errors, and rule-engine conflicts.
@@ -535,6 +562,7 @@ The following MVP components should be rebuilt or replaced in a production versi
 - Plan deployment resources for backend, frontend, document processing, OCR, retrieval, and LLM serving.
 - Design the first SECO internal-data integration: historical inspection reports, defect observations, photos, measurements, and project metadata.
 - Prototype similar-case retrieval and experience-enhanced inspection checklist generation from governed internal data.
+- Add human expert labels and review rubrics for semantic evaluation before treating narrative quality metrics as production gates.
 
 ---
 
