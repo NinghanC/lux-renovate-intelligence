@@ -6,7 +6,7 @@
     "uploaded_documents": [],
     "generation_mode": "mock",
     "include_uploaded_documents": true,
-    "max_evidence": 12
+    "max_evidence": 20
   },
   "expectations": {
     "retrieval": {

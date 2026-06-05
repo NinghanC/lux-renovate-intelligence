@@ -141,12 +141,13 @@ def build_rule_missing_items(rule_matrix: list[RuleMatrixItem]) -> list[dict[str
     for index, item in enumerate(rule_matrix, start=1):
         if item.status not in {"missing", "unknown"}:
             continue
+        item_id = f"missing_rule_{index:03d}"
         missing_items.append(
             {
-                "item_id": f"missing_rule_{index:03d}",
+                "item_id": item_id,
                 "category_id": item.category_id,
                 "description": item.status_reason,
-                "evidence_refs": item.evidence_refs,
+                "evidence_refs": [f"ev_missing_{item_id}"],
                 "recommended_next_action": item.recommended_next_action_seed,
             }
         )

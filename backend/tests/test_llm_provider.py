@@ -1,5 +1,7 @@
+import json
+
 from app.models.schemas import Coordinates, DataQuality, EvidenceObject, EvidenceType, SiteContext
-from app.services.dossier_generator import build_user_prompt, build_validated_dossier
+from app.services.dossier_generator import build_user_prompt, build_validated_dossier, ensure_rule_missing_evidence_available
 from app.services.llm_provider import LLMProvider, MockLLMProvider
 from app.services.readiness_rule_engine import build_rule_matrix
 from app.services.taxonomy import load_taxonomy
@@ -52,13 +54,22 @@ def test_mock_llm_provider_generates_validated_dossier():
     items = evidence()
     taxonomy = load_taxonomy()
     rule_matrix = build_rule_matrix(site_context=context, evidence=items, taxonomy=taxonomy)
+    generation_evidence = ensure_rule_missing_evidence_available(items, rule_matrix)
+    user_prompt = build_user_prompt(
+        site_context=context,
+        evidence=generation_evidence,
+        taxonomy=taxonomy,
+        rule_matrix=rule_matrix,
+    )
+    prompt_payload = json.loads(user_prompt)
+    assert any(evidence_id.startswith("ev_missing_") for evidence_id in prompt_payload["allowed_evidence_ids"])
     draft = MockLLMProvider().generate_draft(
         system_prompt="system",
-        user_prompt=build_user_prompt(site_context=context, evidence=items, taxonomy=taxonomy, rule_matrix=rule_matrix),
+        user_prompt=user_prompt,
     )
     dossier = build_validated_dossier(
         site_context=context,
-        evidence=items,
+        evidence=generation_evidence,
         taxonomy=taxonomy,
         draft=draft,
         rule_matrix=rule_matrix,

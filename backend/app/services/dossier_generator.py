@@ -163,18 +163,19 @@ class DossierGenerator:
             evidence=evidence,
             taxonomy=taxonomy,
         )
+        generation_evidence = ensure_rule_missing_evidence_available(evidence, rule_matrix)
         draft = self.llm_provider.generate_draft(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=build_user_prompt(
                 site_context=site_context,
-                evidence=evidence,
+                evidence=generation_evidence,
                 taxonomy=taxonomy,
                 rule_matrix=rule_matrix,
             ),
         )
         return build_validated_dossier(
             site_context=site_context,
-            evidence=evidence,
+            evidence=generation_evidence,
             taxonomy=taxonomy,
             draft=draft,
             rule_matrix=rule_matrix,
@@ -191,6 +192,8 @@ def build_validated_dossier(
     rule_matrix: list[RuleMatrixItem] | None = None,
     source_registry: SourceRegistry | None = None,
 ) -> Dossier:
+    if rule_matrix is not None:
+        evidence = ensure_rule_missing_evidence_available(evidence, rule_matrix)
     validate_taxonomy_complete(draft)
     normalize_draft_evidence_refs(draft, evidence)
     if rule_matrix is not None:
@@ -264,30 +267,59 @@ def normalize_draft_evidence_refs(draft: DossierDraft, evidence: list[EvidenceOb
 
 
 def ensure_rule_missing_information(draft: DossierDraft, rule_matrix: list[RuleMatrixItem]) -> None:
-    existing_categories = {item.category_id for item in draft.missing_information_checklist}
+    existing_by_category = {item.category_id: item for item in draft.missing_information_checklist}
     for item in build_rule_missing_items(rule_matrix):
         category_id = str(item["category_id"])
-        if category_id in existing_categories:
+        existing = existing_by_category.get(category_id)
+        if existing:
+            for ref in item["evidence_refs"]:
+                if isinstance(ref, str) and ref not in existing.evidence_refs:
+                    existing.evidence_refs.append(ref)
             continue
-        draft.missing_information_checklist.append(MissingInformationItem.model_validate(item))
-        existing_categories.add(category_id)
+        missing_item = MissingInformationItem.model_validate(item)
+        draft.missing_information_checklist.append(missing_item)
+        existing_by_category[category_id] = missing_item
+
+
+def ensure_rule_missing_evidence_available(
+    evidence: list[EvidenceObject],
+    rule_matrix: list[RuleMatrixItem],
+) -> list[EvidenceObject]:
+    known = {item.evidence_id for item in evidence}
+    rule_missing_items = [MissingInformationItem.model_validate(item) for item in build_rule_missing_items(rule_matrix)]
+    derived = [
+        item
+        for item in build_missing_information_evidence_for_items(rule_missing_items, evidence)
+        if item.evidence_id not in known
+    ]
+    return [*evidence, *derived]
 
 
 def build_missing_information_evidence(
     draft: DossierDraft,
     source_evidence: list[EvidenceObject],
 ) -> list[EvidenceObject]:
+    return build_missing_information_evidence_for_items(draft.missing_information_checklist, source_evidence)
+
+
+def build_missing_information_evidence_for_items(
+    missing_items: list[MissingInformationItem],
+    source_evidence: list[EvidenceObject],
+) -> list[EvidenceObject]:
     known_refs = {item.evidence_id for item in source_evidence}
     derived: list[EvidenceObject] = []
-    for index, item in enumerate(draft.missing_information_checklist, start=1):
-        supporting_refs = [ref for ref in item.evidence_refs if ref in known_refs]
+    for index, item in enumerate(missing_items, start=1):
+        evidence_id = f"ev_missing_{item.item_id or index}"
+        if evidence_id in known_refs:
+            continue
+        supporting_refs = [ref for ref in item.evidence_refs if ref in known_refs and ref != evidence_id]
         content = (
             f"Missing information evidence for category '{item.category_id}': {item.description} "
             f"Recommended next action: {item.recommended_next_action}"
         )
         derived.append(
             EvidenceObject(
-                evidence_id=f"ev_missing_{item.item_id or index}",
+                evidence_id=evidence_id,
                 evidence_type=EvidenceType.derived_missing_information,
                 source_id="src_system_derived_missing_information",
                 source_type="derived",

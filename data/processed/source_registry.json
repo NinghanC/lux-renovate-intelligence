@@ -201,6 +201,33 @@
     }
   },
   {
+    "source_id": "src_upload_demo_diekirch_cite_militaire_001_upload_366d15bfbe19_sample_condition_observations",
+    "display_name": "demo_diekirch_cite_militaire_001_upload_366d15bfbe19_sample_condition_observations.pdf",
+    "source_type": "uploaded_document",
+    "source_subtype": "condition_observation",
+    "modality": "pdf",
+    "authority": "user_supplied",
+    "commune": null,
+    "language": null,
+    "original_url": null,
+    "source_page_url": null,
+    "local_path": "C:\\Git\\lux-renovate-intelligence\\data\\raw\\uploads\\demo_diekirch_cite_militaire_001_upload_366d15bfbe19_sample_condition_observations.pdf",
+    "checksum_sha256": "e3a60d970b3291ac0b4b681091c79629f955b302b455e4ade101925398013b07",
+    "page_count": 2,
+    "parser": "pymupdf_or_ocr",
+    "status": "available",
+    "metadata": {
+      "document_id": "upload_demo_diekirch_cite_militaire_001_upload_366d15bfbe19_sample_condition_observations",
+      "upload_document_id": "upload_366d15bfbe19",
+      "source_id": "src_upload_demo_diekirch_cite_militaire_001_upload_366d15bfbe19_sample_condition_observations",
+      "source_subtype": "condition_observation",
+      "original_filename": "sample_condition_observations.pdf",
+      "site_id": "demo_diekirch_cite_militaire_001",
+      "commune": "Diekirch",
+      "modality": "pdf"
+    }
+  },
+  {
     "source_id": "src_upload_demo_diekirch_cite_militaire_001_upload_418828fe37b1_sample_condition_observations",
     "display_name": "demo_diekirch_cite_militaire_001_upload_418828fe37b1_sample_condition_observations.pdf",
     "source_type": "uploaded_document",
@@ -225,6 +252,33 @@
       "site_id": "demo_diekirch_cite_militaire_001",
       "commune": "Diekirch",
       "modality": "pdf"
+    }
+  },
+  {
+    "source_id": "src_upload_demo_diekirch_cite_militaire_001_upload_4aa6054a84cc_preliminary_site_visit_notes",
+    "display_name": "demo_diekirch_cite_militaire_001_upload_4aa6054a84cc_preliminary_site_visit_notes.txt",
+    "source_type": "uploaded_document",
+    "source_subtype": "inspection_report",
+    "modality": "text",
+    "authority": "user_supplied",
+    "commune": null,
+    "language": null,
+    "original_url": null,
+    "source_page_url": null,
+    "local_path": "C:\\Git\\lux-renovate-intelligence\\data\\raw\\uploads\\demo_diekirch_cite_militaire_001_upload_4aa6054a84cc_preliminary_site_visit_notes.txt",
+    "checksum_sha256": "91f0fdb904ad77cc34f70476136ed1d43cc0c5d39813995053860d3399df808c",
+    "page_count": 1,
+    "parser": "text",
+    "status": "available",
+    "metadata": {
+      "document_id": "upload_demo_diekirch_cite_militaire_001_upload_4aa6054a84cc_preliminary_site_visit_notes",
+      "upload_document_id": "upload_4aa6054a84cc",
+      "source_id": "src_upload_demo_diekirch_cite_militaire_001_upload_4aa6054a84cc_preliminary_site_visit_notes",
+      "source_subtype": "inspection_report",
+      "original_filename": "preliminary_site_visit_notes.txt",
+      "site_id": "demo_diekirch_cite_militaire_001",
+      "commune": "Diekirch",
+      "modality": "text"
     }
   },
   {
