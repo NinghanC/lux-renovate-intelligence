@@ -1,8 +1,10 @@
 # LuxRenovate Intelligence
 
-LuxRenovate Intelligence is a Luxembourg-first MVP for preparing an evidence-backed renovation readiness dossier for existing buildings when original records, plans, assessments, and technical documentation may be incomplete or unreliable.
+LuxRenovate Intelligence is a Luxembourg-focused MVP designed to help renovation professionals assess the readiness of existing buildings for renovation projects when plans, permits, technical records, and historical documentation are incomplete, outdated, or unavailable.
 
-The product is not a generic RAG chatbot. It is a site-centric workflow: a user selects a Luxembourg demo site, optionally uploads supporting documents, generates a dossier, and reviews what is known, what is missing, what should be checked on site, and which evidence supports each finding.
+Rather than functioning as a generic RAG chatbot, the platform supports a structured renovation due-diligence workflow. Before visiting a site, engineers need a clear understanding of what information is already available, what critical evidence is missing, which regulatory or public constraints may affect the project, and which questions should be investigated during the inspection.
+
+The workflow is site-centric. Users select a Luxembourg demonstration property, optionally upload supporting documents, and generate a renovation readiness dossier. The dossier consolidates available evidence, identifies documentation gaps, highlights potential constraints relevant to the property, recommends inspection priorities, and provides traceable references for every finding. The objective is not to answer arbitrary questions, but to help engineers make informed decisions about what is known, what remains uncertain, and what actions are required to progress a renovation assessment.
 
 ---
 
