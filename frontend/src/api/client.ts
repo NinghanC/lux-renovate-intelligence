@@ -2,6 +2,7 @@ import type { DemoSite, Dossier, RetrievedEvidence, SiteContext, SiteGeoJsonResp
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 const API_AUTH_TOKEN = import.meta.env.VITE_API_AUTH_TOKEN ?? "dev-demo-token-change-me";
+const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 240000);
 
 function authHeaders(headers?: HeadersInit): Headers {
   const result = new Headers(headers);
@@ -23,10 +24,23 @@ export type GenerateDossierOptions = {
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: authHeaders(options?.headers)
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: authHeaders(options?.headers),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`Request timed out after ${Math.round(API_TIMEOUT_MS / 1000)} seconds.`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   if (!response.ok) {
     let detail = `HTTP ${response.status}`;
     try {

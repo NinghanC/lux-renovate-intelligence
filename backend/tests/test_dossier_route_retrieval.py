@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 import inspect
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.api import routes_dossiers
 from app.main import app
@@ -187,6 +189,21 @@ def test_generate_with_advanced_options_uses_custom_query_and_bypasses_cache(mon
     assert capturing_retriever.query_kwargs["limit"] == 8
     assert capturing_ingestion.load_kwargs["include_uploaded_documents"] is False
     assert capturing_ingestion.uploaded_signature_kwargs["include_uploaded_documents"] is False
+
+
+def test_generate_rejects_max_evidence_outside_bounds():
+    response = TestClient(app).post(
+        "/api/dossiers/generate",
+        headers=AUTH_HEADERS,
+        json={"site_id": "demo_lux_laangfur_001", "max_evidence": 100000},
+    )
+
+    assert response.status_code == 422
+
+
+def test_generate_request_model_bounds_max_evidence():
+    with pytest.raises(ValidationError):
+        routes_dossiers.DossierGenerateRequest(site_id="demo_lux_laangfur_001", max_evidence=0)
 
 
 def test_generate_cache_signature_includes_generation_contract_versions(monkeypatch):

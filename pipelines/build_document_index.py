@@ -1,16 +1,11 @@
 import json
-import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.append(str(ROOT / "backend"))
-
-from app.core.config import settings  # noqa: E402
-from app.core.paths import PROCESSED_DIR  # noqa: E402
-from app.models.schemas import PlanningChunk  # noqa: E402
-from app.services.document_retriever import PLANNING_CHUNKS_PATH, PLANNING_EMBEDDINGS_PATH  # noqa: E402
-from app.services.embedding_provider import EmbeddingProvider  # noqa: E402
-from app.services.json_store import read_jsonl  # noqa: E402
+from app.core.config import settings
+from app.core.paths import PROCESSED_DIR
+from app.models.schemas import PlanningChunk
+from app.services.document_retriever import PLANNING_CHUNKS_PATH, PLANNING_EMBEDDINGS_PATH
+from app.services.embedding_provider import EmbeddingProvider
+from app.services.json_store import read_jsonl
 
 
 def batched(items: list[PlanningChunk], size: int = settings.embedding_batch_size):

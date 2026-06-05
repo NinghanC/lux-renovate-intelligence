@@ -1,4 +1,3 @@
-import json
 from typing import Any
 
 from app.models.schemas import EvidenceObject, EvidenceType, SiteContext, SiteGeoJsonResponse
@@ -99,4 +98,4 @@ def _geojson_context_features(site_geojson: SiteGeoJsonResponse | None) -> list[
                 "source_id": properties.get("source_id"),
             }
         )
-    return json.loads(json.dumps(features))
+    return features

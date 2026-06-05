@@ -314,6 +314,7 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 CORS_ALLOW_CREDENTIALS=false
 CORS_METHODS=GET,POST
 CORS_HEADERS=Content-Type,X-API-Key
+VITE_API_TIMEOUT_MS=240000
 LLM_PROVIDER=mock
 LLM_MOCK_MODE=true
 EXTERNAL_API_MAX_ATTEMPTS=3
@@ -360,6 +361,7 @@ Install Python dependencies from the repository root:
 
 ```bash
 python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
 
 Install frontend dependencies:
@@ -395,6 +397,7 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 CORS_ALLOW_CREDENTIALS=false
 CORS_METHODS=GET,POST
 CORS_HEADERS=Content-Type,X-API-Key
+VITE_API_TIMEOUT_MS=240000
 
 LLM_PROVIDER=<your-openai-compatible-provider>
 LLM_MOCK_MODE=false
@@ -445,7 +448,7 @@ Embedding, rerank, and OCR are optional. The default local retrieval path uses m
 Start the backend:
 
 ```bash
-uvicorn app.main:app --app-dir backend --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 Start the frontend in another terminal:
@@ -486,7 +489,6 @@ With the default mock configuration, step 5 generates a demo dossier without cre
 Run the offline evaluation layer in mock mode:
 
 ```powershell
-$env:PYTHONPATH="backend"
 .\.venv\Scripts\python.exe -m app.evaluation.runner --mode mock
 ```
 
@@ -503,13 +505,13 @@ The UI displays generation mode, provider, model, whether an external LLM was ca
 The repository includes local public planning PDFs. To refresh them:
 
 ```bash
-python -X utf8 pipelines/download_planning_documents.py
+python -X utf8 -m pipelines.download_planning_documents
 ```
 
 To generate planning chunks as an audit/debug artifact:
 
 ```bash
-python -X utf8 pipelines/ingest_planning_documents.py
+python -X utf8 -m pipelines.ingest_planning_documents
 ```
 
 The Generate endpoint uses a source-hash checked chunk cache when available. If the cache is missing or stale, it parses and chunks the raw planning PDFs again.

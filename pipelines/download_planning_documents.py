@@ -1,12 +1,8 @@
-import sys
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.append(str(ROOT / "backend"))
-
-from app.core.paths import RAW_PLANNING_DIR, SAMPLE_DIR, ensure_runtime_dirs  # noqa: E402
-from app.services.json_store import read_json  # noqa: E402
+from app.core.paths import RAW_PLANNING_DIR, SAMPLE_DIR, ensure_runtime_dirs
+from app.services.json_store import read_json
 
 
 SOURCES_PATH = SAMPLE_DIR / "planning_sources.json"

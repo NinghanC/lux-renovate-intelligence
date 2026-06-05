@@ -5,7 +5,6 @@ The MVP includes an offline evaluation layer for deterministic regression checks
 ## Run
 
 ```powershell
-$env:PYTHONPATH="backend"
 .\.venv\Scripts\python.exe -m app.evaluation.runner --mode mock
 ```
 

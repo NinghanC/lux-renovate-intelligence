@@ -276,7 +276,7 @@ class DossierGenerateRequest(BaseModel):
     site_id: str
     query: str | None = None
     include_uploaded_documents: bool = True
-    max_evidence: int = 12
+    max_evidence: int = Field(default=12, ge=1, le=20)
     force_refresh: bool = False
 
 
