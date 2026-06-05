@@ -464,6 +464,10 @@ function App() {
                 </div>
                 <SourceTypeCoverage evidence={dossier.evidence} />
                 <GenerationUsage usage={dossier.usage} />
+                <SemanticReviewSummary
+                  review={dossier.semantic_review}
+                  usage={dossier.semantic_review_usage}
+                />
               </div>
             </section>
 
@@ -913,6 +917,45 @@ function GenerationUsage({ usage }: { usage: Dossier["usage"] }) {
       <p>
         Tokens: {tokenTotal.toLocaleString()} {tokenLabel}
       </p>
+    </div>
+  );
+}
+
+function SemanticReviewSummary({
+  review,
+  usage,
+}: {
+  review: Dossier["semantic_review"];
+  usage: Dossier["semantic_review_usage"];
+}) {
+  if (!review) {
+    return null;
+  }
+  const warningCount =
+    review.unsupported_claims.length +
+    review.forbidden_claim_warnings.length +
+    review.grounding_warnings.length +
+    (review.overclaiming_detected ? 1 : 0) +
+    (review.absence_to_risk_violation ? 1 : 0);
+  const tokenTotal = usage ? usage.total_tokens_reported ?? usage.total_tokens_estimated : null;
+  const tokenLabel = usage?.total_tokens_reported === null ? "estimated" : "reported";
+  return (
+    <div className="source-coverage">
+      <span>Semantic Review</span>
+      <div>
+        <strong>{review.status}</strong>
+        <p>External LLM: {usage?.external_llm_called ? "yes" : "no"}</p>
+      </div>
+      <p>
+        {review.reviewer_provider ?? "disabled"}
+        {review.reviewer_model ? ` / ${review.reviewer_model}` : ""}
+      </p>
+      <p>Warnings: {warningCount}</p>
+      {tokenTotal !== null ? (
+        <p>
+          Tokens: {tokenTotal.toLocaleString()} {tokenLabel}
+        </p>
+      ) : null}
     </div>
   );
 }

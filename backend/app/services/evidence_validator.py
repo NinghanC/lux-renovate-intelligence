@@ -160,7 +160,10 @@ def validate_claim_support(
 
 
 def validate_forbidden_claims(dossier: Dossier | DossierDraft) -> None:
-    text = dossier.model_dump_json()
+    if isinstance(dossier, Dossier):
+        text = dossier.model_dump_json(exclude={"usage", "semantic_review", "semantic_review_usage"})
+    else:
+        text = dossier.model_dump_json()
     for pattern in FORBIDDEN_PATTERNS:
         if re.search(pattern, text, flags=re.IGNORECASE):
             raise ValidationFailure(f"Forbidden final engineering/legal claim detected: {pattern}")

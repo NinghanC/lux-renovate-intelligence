@@ -8,6 +8,7 @@ from app.models.schemas import CoverageScore, Dossier, EvidenceObject, EvidenceT
 from app.services.dossier_generator import PROMPT_VERSION
 from app.services.evidence_validator import VALIDATOR_VERSION
 from app.services.readiness_rule_engine import READINESS_RULE_ENGINE_VERSION
+from app.services.semantic_reviewer import SEMANTIC_REVIEW_VERSION
 from app.services.taxonomy import TAXONOMY_VERSION, taxonomy_fingerprint
 
 
@@ -175,11 +176,14 @@ def test_generate_cache_signature_includes_generation_contract_versions(monkeypa
         commune="Luxembourg",
     )
 
-    assert signature["cache_version"] == 2
+    assert signature["cache_version"] == 3
     assert signature["generation_contract"] == {
         "prompt_version": PROMPT_VERSION,
         "readiness_rule_engine_version": READINESS_RULE_ENGINE_VERSION,
         "validator_version": VALIDATOR_VERSION,
+        "semantic_review_version": SEMANTIC_REVIEW_VERSION,
         "taxonomy_version": TAXONOMY_VERSION,
         "taxonomy_fingerprint": taxonomy_fingerprint(),
     }
+    assert "semantic_review_provider" in signature["providers"]
+    assert "semantic_review_model" in signature["providers"]

@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.semantic_review import SemanticReview
 from app.models.usage import TokenUsage
 
 
@@ -267,6 +268,8 @@ class Dossier(BaseModel):
     evidence: list[EvidenceObject]
     limitations: list[str]
     usage: TokenUsage | None = None
+    semantic_review: SemanticReview | None = None
+    semantic_review_usage: TokenUsage | None = None
 
 
 class DossierGenerateRequest(BaseModel):

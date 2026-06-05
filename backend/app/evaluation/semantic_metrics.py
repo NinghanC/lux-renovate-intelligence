@@ -24,6 +24,26 @@ def compute_semantic_metrics(case: SemanticEvaluationCase, dossier: Dossier) -> 
         "total_tokens_estimated": dossier.usage.total_tokens_estimated if dossier.usage else None,
         "total_tokens_reported": dossier.usage.total_tokens_reported if dossier.usage else None,
         "usage_source": dossier.usage.usage_source if dossier.usage else None,
+        "semantic_review_status": dossier.semantic_review.status if dossier.semantic_review else None,
+        "semantic_review_enabled": dossier.semantic_review.enabled if dossier.semantic_review else None,
+        "semantic_review_overclaiming_detected": (
+            dossier.semantic_review.overclaiming_detected if dossier.semantic_review else None
+        ),
+        "semantic_review_absence_to_risk_violation": (
+            dossier.semantic_review.absence_to_risk_violation if dossier.semantic_review else None
+        ),
+        "semantic_review_external_llm_called": (
+            dossier.semantic_review_usage.external_llm_called if dossier.semantic_review_usage else False
+        ),
+        "semantic_review_total_tokens_estimated": (
+            dossier.semantic_review_usage.total_tokens_estimated if dossier.semantic_review_usage else None
+        ),
+        "semantic_review_total_tokens_reported": (
+            dossier.semantic_review_usage.total_tokens_reported if dossier.semantic_review_usage else None
+        ),
+        "semantic_review_usage_source": (
+            dossier.semantic_review_usage.usage_source if dossier.semantic_review_usage else None
+        ),
     }
 
     if expectation.missing_status_required:

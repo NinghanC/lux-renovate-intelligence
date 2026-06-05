@@ -18,7 +18,7 @@ The MVP demonstrates how heterogeneous building-related sources can be converted
 - uploaded sample documents;
 - system-derived missing-information evidence.
 
-The backend normalizes these inputs into source-aware evidence records, retrieves relevant evidence through purpose-based multilingual search, sends bounded context to either the deterministic demo generator or an OpenAI-compatible LLM, validates the generated dossier, and serves the result through a React + FastAPI web application.
+The backend normalizes these inputs into source-aware evidence records, retrieves relevant evidence through purpose-based multilingual search, sends bounded context to either the deterministic demo generator or an OpenAI-compatible LLM, validates the generated dossier, optionally runs a second LLM as a report-only semantic reviewer, and serves the result through a React + FastAPI web application.
 
 ---
 
@@ -107,6 +107,9 @@ The MVP pipeline has seven stages:
 7. **Validation and storage**
    Validate schema, evidence references, source integrity, page ranges, claim support, taxonomy completeness, and forbidden final engineering claims. Store the validated dossier for later lookup.
 
+8. **Optional semantic quality review**
+   If configured, a second OpenAI-compatible LLM reviews the validated dossier for overclaiming, unsupported interpretations, and absence-of-evidence-to-risk mistakes. It is report-only and does not replace deterministic validation or human engineering judgement.
+
 ### Pipeline workflow
 
 ```mermaid
@@ -145,7 +148,10 @@ flowchart TD
     H --> I[Generated DossierDraft JSON]
     I --> J[evidence_validator.validate_dossier]
     J --> K[coverage_calculator.calculate_coverage]
-    J --> A5
+    J --> R{Semantic reviewer enabled?}
+    R -->|yes| S[Report-only semantic review]
+    R -->|no| A5
+    S --> A5
     A5 --> L[Final evidence panel]
     K --> M[Saved dossier]
     L --> M
@@ -198,6 +204,7 @@ After coordination, retrieved and generated evidence share common fields such as
 | Optional OCR fallback | `backend/app/services/ocr_provider.py` | `OCRProvider.extract_text_from_png()`, `_textract_plain_text()` |
 | Generate dossier | `backend/app/services/dossier_generator.py`, `backend/app/services/llm_provider.py` | `DossierGenerator.generate()`, `build_user_prompt()`, `MockLLMProvider.generate_draft()` or `LLMProvider.generate_draft()` |
 | Validate dossier | `backend/app/services/evidence_validator.py` | `validate_dossier()`, `validate_evidence_refs()`, `validate_claim_support()`, `validate_forbidden_claims()` |
+| Optional semantic review | `backend/app/services/semantic_reviewer.py` | `SemanticReviewer.review()`, `build_review_prompt()` |
 | Calculate evidence coverage | `backend/app/services/coverage_calculator.py` | `calculate_coverage()` |
 | Store and retrieve dossiers | `backend/app/services/dossier_store.py` | `save_dossier()`, `load_dossier()`, `load_cached_dossier()` |
 
@@ -246,6 +253,7 @@ evidence objects
 -> derived missing-information evidence
 -> bounded LLM summary/checklist generation
 -> validation and audit output
+-> optional report-only semantic review
 ```
 
 ---
@@ -269,6 +277,7 @@ The main AI-related implementation points are:
 | LLM request construction | `backend/app/services/dossier_generator.py::build_user_prompt()` |
 | Demo-mode generation | `backend/app/services/llm_provider.py::MockLLMProvider.generate_draft()` |
 | Structured LLM call | `backend/app/services/llm_provider.py::LLMProvider.generate_draft()` |
+| Optional second-LLM semantic review | `backend/app/services/semantic_reviewer.py::SemanticReviewer.review()` |
 | JSON extraction and schema validation | `backend/app/services/llm_provider.py::extract_json_object()`, Pydantic models in `backend/app/models/schemas.py` |
 | Dossier orchestration | `backend/app/services/dossier_generator.py::DossierGenerator.generate()` |
 | Evidence validation | `backend/app/services/evidence_validator.py::validate_dossier()` |
@@ -276,7 +285,7 @@ The main AI-related implementation points are:
 
 The LLM is not treated as the source of truth. It transforms retrieved evidence into a structured, reviewable dossier. The system still requires human validation for engineering, structural, fire-safety, legal, and compliance questions.
 
-The MVP includes an offline evaluation layer for deterministic regression and semantic boundary checks. It runs in mock mode without cloud credentials and measures retrieval source coverage, rule-derived matrix behavior, validator outcomes, dossier consistency, and dangerous overclaiming boundaries. See `docs/evaluation.md`.
+The MVP includes an offline evaluation layer for deterministic regression and semantic boundary checks. It runs in mock mode without cloud credentials and measures retrieval source coverage, rule-derived matrix behavior, validator outcomes, dossier consistency, semantic-review status, token usage, and dangerous overclaiming boundaries. See `docs/evaluation.md`.
 
 ---
 
@@ -304,6 +313,24 @@ LLM_MOCK_MODE=true
 ```
 
 Docker Compose forwards local `.env` LLM values into the backend container. If you set `LLM_MOCK_MODE=false`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_RESPONSE_FORMAT` locally, Compose uses those values instead of the mock defaults.
+
+The optional semantic reviewer is disabled by default:
+
+```env
+SEMANTIC_REVIEW_PROVIDER=disabled
+```
+
+To test a second LLM as a quality-control pass, configure it separately from the generation model:
+
+```env
+SEMANTIC_REVIEW_PROVIDER=openai_compatible
+SEMANTIC_REVIEW_API_KEY=<your-review-token>
+SEMANTIC_REVIEW_BASE_URL=https://<your-provider-host>/<openai-compatible-path>
+SEMANTIC_REVIEW_MODEL=<your-review-model-or-serving-endpoint-name>
+SEMANTIC_REVIEW_RESPONSE_FORMAT=json_object
+```
+
+The reviewer does not act as a router, planner, or autonomous agent. It produces structured warnings for overclaiming, unsupported interpretations, grounding issues, and absence-of-evidence-to-risk mistakes. Deterministic validator failures still block the dossier; semantic reviewer warnings are shown as review metadata.
 
 No LLM API key is required for the demo. The reviewer can select a Luxembourg demo site, optionally upload a file from `data/sample/upload_examples/`, click **Generate**, and review the readiness matrix, coverage score, missing-information checklist, inspection checklist, evidence panel, source links, and limitations.
 
@@ -350,6 +377,14 @@ LLM_API_KEY=<your-token>
 LLM_BASE_URL=https://<your-provider-host>/<openai-compatible-path>
 LLM_MODEL=<your-chat-model-or-serving-endpoint-name>
 LLM_RESPONSE_FORMAT=json_object
+
+SEMANTIC_REVIEW_PROVIDER=disabled
+# Optional second LLM:
+# SEMANTIC_REVIEW_PROVIDER=openai_compatible
+# SEMANTIC_REVIEW_API_KEY=<your-review-token>
+# SEMANTIC_REVIEW_BASE_URL=https://<your-provider-host>/<openai-compatible-path>
+# SEMANTIC_REVIEW_MODEL=<your-review-model-or-serving-endpoint-name>
+# SEMANTIC_REVIEW_RESPONSE_FORMAT=json_object
 
 EMBEDDING_BASE_URL=https://<your-provider-host>/<embedding-path>
 EMBEDDING_MODEL=<your-embedding-model-or-serving-endpoint-name>
@@ -433,7 +468,7 @@ The evaluation runner executes two deterministic cases and one semantic boundary
 
 Each generated dossier includes token and generation usage metadata. In mock mode, no external LLM call is made and external token usage is reported as zero. In real LLM mode, the backend records provider-reported token usage when available and falls back to a lightweight local estimate otherwise.
 
-The UI displays generation mode, provider, model, whether an external LLM was called, and total reported or estimated tokens. This is an MVP observability feature for transparency and reproducibility, not a billing system.
+The UI displays generation mode, provider, model, whether an external LLM was called, and total reported or estimated tokens. If the semantic reviewer is enabled, the UI also displays reviewer status, provider/model, warning count, and reviewer token usage. This is an MVP observability feature for transparency and reproducibility, not a billing system.
 
 ### 4. Refresh public planning PDFs
 

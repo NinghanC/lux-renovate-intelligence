@@ -12,6 +12,7 @@ from app.models.schemas import (
     SiteContext,
 )
 from app.models.usage import TokenUsage
+from app.models.semantic_review import SemanticReview
 from app.services.coverage_calculator import calculate_coverage
 from app.services.evidence_validator import (
     validate_claim_support,
@@ -24,6 +25,7 @@ from app.services.evidence_validator import (
 )
 from app.services.llm_provider import LLMProvider, MockLLMProvider, create_llm_provider
 from app.services.readiness_rule_engine import RuleMatrixItem, build_rule_matrix, build_rule_missing_items
+from app.services.semantic_reviewer import SemanticReviewer, create_semantic_reviewer
 from app.services.source_registry import SourceRegistry
 
 
@@ -151,9 +153,11 @@ class DossierGenerator:
         self,
         llm_provider: LLMProvider | MockLLMProvider | None = None,
         source_registry: SourceRegistry | None = None,
+        semantic_reviewer: SemanticReviewer | None = None,
     ):
         self.llm_provider = llm_provider or create_llm_provider()
         self.source_registry = source_registry or SourceRegistry()
+        self.semantic_reviewer = semantic_reviewer or create_semantic_reviewer()
 
     def generate(
         self,
@@ -177,7 +181,7 @@ class DossierGenerator:
                 rule_matrix=rule_matrix,
             ),
         )
-        return build_validated_dossier(
+        dossier = build_validated_dossier(
             site_context=site_context,
             evidence=generation_evidence,
             taxonomy=taxonomy,
@@ -186,6 +190,15 @@ class DossierGenerator:
             rule_matrix=rule_matrix,
             source_registry=self.source_registry,
         )
+        review_result = self.semantic_reviewer.review(
+            site_context=site_context,
+            dossier=dossier,
+            evidence=dossier.evidence,
+            rule_matrix=rule_matrix,
+        )
+        dossier.semantic_review = review_result.review
+        dossier.semantic_review_usage = review_result.usage
+        return dossier
 
 
 def build_validated_dossier(
@@ -195,6 +208,8 @@ def build_validated_dossier(
     taxonomy: list[ReadinessTaxonomyItem],
     draft: DossierDraft,
     usage: TokenUsage | None = None,
+    semantic_review: SemanticReview | None = None,
+    semantic_review_usage: TokenUsage | None = None,
     rule_matrix: list[RuleMatrixItem] | None = None,
     source_registry: SourceRegistry | None = None,
 ) -> Dossier:
@@ -232,6 +247,8 @@ def build_validated_dossier(
         evidence=evidence_with_missing,
         limitations=draft.limitations,
         usage=usage,
+        semantic_review=semantic_review,
+        semantic_review_usage=semantic_review_usage,
     )
     validate_evidence_source_integrity(evidence_with_missing, sources)
     validate_forbidden_claims(dossier)

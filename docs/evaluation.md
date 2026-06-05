@@ -45,13 +45,15 @@ Soft metrics such as evidence count and source distribution are written to the r
 
 Evaluation reports also include generation usage fields from each dossier, including generation mode, whether an external LLM was called, token usage source, and total reported or estimated tokens. Mock-mode evaluation expects no external LLM call and zero external tokens.
 
+The optional second-LLM semantic reviewer is disabled during the default mock evaluation run. Metrics still record semantic review status, whether the reviewer made an external LLM call, and reviewer token usage when enabled for real-LLM report-only runs.
+
 ## Semantic Layer
 
 Semantic cases live in `data/evaluation/semantic_cases/`.
 
 The first semantic regression checks that missing structural documentation is not converted into a risk or approval claim. Missing evidence may support wording such as requesting structural drawings or a survey. It must not become a statement that the building is unsafe, structurally sound, approved, or safe for occupancy.
 
-The semantic layer starts with conservative phrase checks. Real LLM semantic evaluation should be report-only and manually reviewed, not a CI hard failure.
+The semantic layer starts with conservative phrase checks. The optional semantic reviewer can add report-only LLM review notes for overclaiming, unsupported interpretations, grounding issues, and absence-of-evidence-to-risk mistakes. It should be manually reviewed, not treated as an authoritative CI gate.
 
 ## Limitations
 
@@ -62,4 +64,4 @@ It does not measure production model drift.
 It does not yet use human expert labels.
 Real LLM evaluation is optional and should be reviewed manually, not used as a CI hard failure.
 
-Token usage in real LLM evaluation is a soft observability metric. The MVP does not enforce token budgets or estimate provider cost.
+Token usage in real LLM evaluation, including optional semantic-review usage, is a soft observability metric. The MVP does not enforce token budgets or estimate provider cost.

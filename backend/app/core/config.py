@@ -82,6 +82,14 @@ def _ocr_api_key() -> str | None:
     return None
 
 
+def _semantic_review_provider() -> str:
+    return os.getenv("SEMANTIC_REVIEW_PROVIDER", "disabled")
+
+
+def _semantic_review_base_url() -> str:
+    return os.getenv("SEMANTIC_REVIEW_BASE_URL", "")
+
+
 def aws_credentials_available() -> bool:
     if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
         return True
@@ -108,6 +116,12 @@ class Settings:
     llm_model: str | None = os.getenv("LLM_MODEL") or None
     llm_response_format: str | None = os.getenv("LLM_RESPONSE_FORMAT") or None
     llm_timeout_seconds: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "180"))
+    semantic_review_provider: str = _semantic_review_provider()
+    semantic_review_api_key: str | None = os.getenv("SEMANTIC_REVIEW_API_KEY")
+    semantic_review_base_url: str | None = _semantic_review_base_url()
+    semantic_review_model: str | None = os.getenv("SEMANTIC_REVIEW_MODEL") or None
+    semantic_review_response_format: str | None = os.getenv("SEMANTIC_REVIEW_RESPONSE_FORMAT") or "json_object"
+    semantic_review_timeout_seconds: int = int(os.getenv("SEMANTIC_REVIEW_TIMEOUT_SECONDS", "120"))
     embedding_api_key: str | None = _embedding_api_key()
     embedding_base_url: str | None = _embedding_base_url()
     embedding_model: str | None = os.getenv("EMBEDDING_MODEL") or None
@@ -147,6 +161,16 @@ class Settings:
         if self.llm_mock_mode or self.llm_provider == "mock":
             return True
         return bool(self.llm_api_key and self.llm_base_url and self.llm_model)
+
+    @property
+    def semantic_review_configured(self) -> bool:
+        if self.semantic_review_provider == "disabled":
+            return False
+        return bool(
+            self.semantic_review_api_key
+            and self.semantic_review_base_url
+            and self.semantic_review_model
+        )
 
     @property
     def embedding_configured(self) -> bool:

@@ -118,6 +118,21 @@ export interface TokenUsage {
   created_at: string;
 }
 
+export interface SemanticReview {
+  enabled: boolean;
+  status: "disabled" | "passed" | "warnings" | "failed";
+  blocking: boolean;
+  reviewer_provider: string | null;
+  reviewer_model: string | null;
+  overclaiming_detected: boolean;
+  absence_to_risk_violation: boolean;
+  unsupported_claims: string[];
+  forbidden_claim_warnings: string[];
+  grounding_warnings: string[];
+  review_notes: string[];
+  error_summary: string | null;
+}
+
 export interface ReadinessMatrixItem {
   category_id: string;
   label: string;
@@ -176,4 +191,6 @@ export interface Dossier {
   evidence: EvidenceObject[];
   limitations: string[];
   usage: TokenUsage | null;
+  semantic_review: SemanticReview | null;
+  semantic_review_usage: TokenUsage | null;
 }

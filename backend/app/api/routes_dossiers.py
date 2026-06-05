@@ -18,6 +18,7 @@ from app.services.llm_provider import LLMConfigurationError, LLMGenerationError
 from app.services.planning_ingestion import PlanningIngestionService
 from app.services.geospatial import GeoJsonService
 from app.services.readiness_rule_engine import READINESS_RULE_ENGINE_VERSION
+from app.services.semantic_reviewer import SEMANTIC_REVIEW_VERSION
 from app.services.site_resolver import SiteNotFoundError, SiteResolver
 from app.services.source_registry import SourceRegistry
 from app.services.taxonomy import TAXONOMY_VERSION, load_taxonomy, taxonomy_fingerprint
@@ -137,7 +138,7 @@ def get_dossier(dossier_id: str) -> Dossier:
 
 def build_generate_cache_signature(*, request: DossierGenerateRequest, commune: str) -> dict:
     return {
-        "cache_version": 2,
+        "cache_version": 3,
         "site_id": request.site_id,
         "commune": commune,
         "query": request.query or None,
@@ -147,6 +148,7 @@ def build_generate_cache_signature(*, request: DossierGenerateRequest, commune: 
             "prompt_version": PROMPT_VERSION,
             "readiness_rule_engine_version": READINESS_RULE_ENGINE_VERSION,
             "validator_version": VALIDATOR_VERSION,
+            "semantic_review_version": SEMANTIC_REVIEW_VERSION,
             "taxonomy_version": TAXONOMY_VERSION,
             "taxonomy_fingerprint": taxonomy_fingerprint(),
         },
@@ -164,6 +166,11 @@ def build_generate_cache_signature(*, request: DossierGenerateRequest, commune: 
             "llm_base_url": settings.llm_base_url,
             "llm_model": settings.llm_model,
             "llm_response_format": settings.llm_response_format,
+            "semantic_review_provider": settings.semantic_review_provider,
+            "semantic_review_configured": settings.semantic_review_configured,
+            "semantic_review_base_url": settings.semantic_review_base_url,
+            "semantic_review_model": settings.semantic_review_model,
+            "semantic_review_response_format": settings.semantic_review_response_format,
             "embedding_configured": settings.embedding_configured,
             "embedding_base_url": settings.embedding_base_url,
             "embedding_model": settings.embedding_model,
