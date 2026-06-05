@@ -1,4 +1,5 @@
 import hashlib
+import logging
 from pathlib import Path
 
 import fitz
@@ -12,6 +13,7 @@ from app.services.json_store import read_json, write_json
 PLANNING_SOURCES_PATH = SAMPLE_DIR / "planning_sources.json"
 DEMO_SITES_PATH = SAMPLE_DIR / "demo_sites.json"
 SOURCE_REGISTRY_PATH = PROCESSED_DIR / "source_registry.json"
+logger = logging.getLogger(__name__)
 
 
 def source_id_for_document(document_id: str) -> str:
@@ -36,7 +38,8 @@ def page_count(path: Path) -> int | None:
     try:
         with fitz.open(path) as doc:
             return len(doc)
-    except Exception:
+    except (OSError, RuntimeError, ValueError) as exc:
+        logger.warning("Could not read page count for %s: %s", path, exc)
         return None
 
 

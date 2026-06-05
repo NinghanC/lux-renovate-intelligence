@@ -1,7 +1,10 @@
 import json
+import logging
 import math
 from collections import Counter
 from pathlib import Path
+
+import httpx
 
 from app.core.config import settings
 from app.core.paths import PROCESSED_DIR, PROCESSED_UPLOADS_DIR
@@ -16,6 +19,7 @@ from app.services.source_registry import SourceRegistry, source_id_for_document
 
 PLANNING_CHUNKS_PATH = PROCESSED_DIR / "planning_chunks.jsonl"
 PLANNING_EMBEDDINGS_PATH = PROCESSED_DIR / "planning_embeddings.jsonl"
+logger = logging.getLogger(__name__)
 
 
 class DocumentRetriever:
@@ -290,7 +294,8 @@ class DocumentRetriever:
             else:
                 chunk_embeddings = self._embed_chunks_on_demand(chunks)
                 embeddings = dict(zip([chunk.chunk_id for chunk in chunks], chunk_embeddings))
-        except Exception:
+        except (RuntimeError, httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+            logger.warning("Embedding retrieval failed; falling back to keyword retrieval: %s", exc)
             return {}
         if not embeddings:
             return {}
@@ -326,7 +331,8 @@ class DocumentRetriever:
                 chunks=chunks,
                 top_n=min(top_n, settings.rerank_top_n),
             )
-        except Exception:
+        except (RuntimeError, KeyError, IndexError, TypeError, ValueError) as exc:
+            logger.warning("Rerank retrieval failed; continuing without rerank: %s", exc)
             return {}
 
     def _chunk_to_evidence(self, chunk: PlanningChunk, score: float) -> EvidenceObject:

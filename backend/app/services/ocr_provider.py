@@ -1,10 +1,15 @@
 import base64
+import logging
 import re
 from typing import Any
 
 import httpx
 
 from app.core.config import aws_credentials_available, settings
+from app.services.retry_policy import post_with_retries
+
+
+logger = logging.getLogger(__name__)
 
 
 class OCRProvider:
@@ -46,13 +51,15 @@ class OCRProvider:
     def _extract_text_with_textract(self, image_bytes: bytes) -> str:
         try:
             import boto3
+            from botocore.exceptions import BotoCoreError, ClientError
         except ImportError:
             return ""
         try:
             client = boto3.client("textract", region_name=self.aws_region)
             response = client.detect_document_text(Document={"Bytes": image_bytes})
             return _textract_plain_text(response)
-        except Exception:
+        except (BotoCoreError, ClientError) as exc:
+            logger.warning("Textract OCR failed: %s", exc)
             return ""
 
     def _extract_text_with_vision_model(self, image_bytes: bytes) -> str:
@@ -82,11 +89,12 @@ class OCRProvider:
         headers = {"Authorization": f"Bearer {self.api_key}"}
         try:
             with httpx.Client(timeout=self.timeout_seconds) as client:
-                response = client.post(endpoint, json=payload, headers=headers)
-                response.raise_for_status()
+                response = post_with_retries(client.post, endpoint, json=payload, headers=headers)
+            response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
             return _plain_text(content)
-        except Exception:
+        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+            logger.warning("Vision OCR request failed: %s", exc)
             return ""
 
 

@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from app.models.schemas import Coordinates, DataQuality, EvidenceObject, EvidenceType, SiteContext
 from app.services.dossier_generator import build_user_prompt, build_validated_dossier, ensure_rule_missing_evidence_available
 from app.services.llm_provider import LLMProvider, MockLLMProvider
@@ -102,3 +104,152 @@ def test_real_llm_provider_requires_configuration():
     provider = LLMProvider(api_key=None, base_url="https://example.test", model="demo-model")
 
     assert provider.configured is False
+
+
+@pytest.mark.anyio
+async def test_real_llm_provider_async_uses_async_client(monkeypatch):
+    used_async_client = False
+    response_payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "building_summary": "Async generated summary.",
+                            "planning_findings": [],
+                            "readiness_matrix": [],
+                            "missing_information_checklist": [],
+                            "technical_risk_signals": [],
+                            "inspection_checklist": [
+                                {
+                                    "item_id": f"check_{index:03d}",
+                                    "task": "Verify evidence.",
+                                    "reason": "Generated for async provider test.",
+                                    "evidence_refs": ["ev_test"],
+                                    "priority": "medium",
+                                }
+                                for index in range(1, 6)
+                            ],
+                            "limitations": ["Test limitation."],
+                        }
+                    )
+                }
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    class FakeResponse:
+        text = ""
+
+        def __init__(self, status_code: int):
+            self.status_code = status_code
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError("HTTP error")
+            return None
+
+        def json(self):
+            return response_payload
+
+    class FakeAsyncClient:
+        def __init__(self, *, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, endpoint, *, json, headers):
+            nonlocal used_async_client
+            used_async_client = True
+            assert endpoint == "https://example.test/chat/completions"
+            assert json["model"] == "demo-model"
+            assert headers["Authorization"] == "Bearer token"
+            return FakeResponse(200)
+
+    monkeypatch.setattr("app.services.llm_provider.httpx.AsyncClient", FakeAsyncClient)
+    provider = LLMProvider(
+        api_key="token",
+        base_url="https://example.test",
+        model="demo-model",
+        response_format="json_object",
+    )
+
+    result = await provider.generate_draft_async(system_prompt="system", user_prompt="user")
+
+    assert used_async_client is True
+    assert result.draft.building_summary == "Async generated summary."
+    assert result.usage.total_tokens_reported == 15
+
+
+@pytest.mark.anyio
+async def test_real_llm_provider_async_retries_transient_status(monkeypatch):
+    calls = []
+    response_payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "building_summary": "Retry generated summary.",
+                            "planning_findings": [],
+                            "readiness_matrix": [],
+                            "missing_information_checklist": [],
+                            "technical_risk_signals": [],
+                            "inspection_checklist": [
+                                {
+                                    "item_id": f"check_{index:03d}",
+                                    "task": "Verify evidence.",
+                                    "reason": "Generated for retry provider test.",
+                                    "evidence_refs": ["ev_test"],
+                                    "priority": "medium",
+                                }
+                                for index in range(1, 6)
+                            ],
+                            "limitations": ["Test limitation."],
+                        }
+                    )
+                }
+            }
+        ],
+    }
+
+    class FakeResponse:
+        text = ""
+
+        def __init__(self, status_code: int):
+            self.status_code = status_code
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError("HTTP error")
+            return None
+
+        def json(self):
+            return response_payload
+
+    class FakeAsyncClient:
+        def __init__(self, *, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def post(self, endpoint, *, json, headers):
+            calls.append(endpoint)
+            return FakeResponse(503 if len(calls) == 1 else 200)
+
+    monkeypatch.setattr("app.services.llm_provider.httpx.AsyncClient", FakeAsyncClient)
+    provider = LLMProvider(api_key="token", base_url="https://example.test", model="demo-model")
+
+    result = await provider.generate_draft_async(system_prompt="system", user_prompt="user")
+
+    assert result.draft.building_summary == "Retry generated summary."
+    assert len(calls) == 2

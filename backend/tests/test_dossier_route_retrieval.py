@@ -66,6 +66,9 @@ class DummyGenerator:
             limitations=["Test only."],
         )
 
+    async def generate_async(self, *, site_context, evidence, taxonomy):
+        return self.generate(site_context=site_context, evidence=evidence, taxonomy=taxonomy)
+
 
 class DummySourceRegistry:
     def refresh_snapshot(self):

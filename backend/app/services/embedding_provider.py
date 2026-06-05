@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.services.retry_policy import post_with_retries
 
 
 class EmbeddingProvider:
@@ -34,7 +35,7 @@ class EmbeddingProvider:
         payload: dict[str, Any] = {"model": self.model, "input": texts}
         headers = {"Authorization": f"Bearer {self.api_key}"}
         with httpx.Client(timeout=60) as client:
-            response = client.post(endpoint, json=payload, headers=headers)
+            response = post_with_retries(client.post, endpoint, json=payload, headers=headers)
             response.raise_for_status()
         data = response.json()["data"]
         return [item["embedding"] for item in sorted(data, key=lambda item: item["index"])]

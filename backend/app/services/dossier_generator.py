@@ -200,6 +200,47 @@ class DossierGenerator:
         dossier.semantic_review_usage = review_result.usage
         return dossier
 
+    async def generate_async(
+        self,
+        *,
+        site_context: SiteContext,
+        evidence: list[EvidenceObject],
+        taxonomy: list[ReadinessTaxonomyItem],
+    ) -> Dossier:
+        rule_matrix = build_rule_matrix(
+            site_context=site_context,
+            evidence=evidence,
+            taxonomy=taxonomy,
+        )
+        generation_evidence = ensure_rule_missing_evidence_available(evidence, rule_matrix)
+        generation_result = await self.llm_provider.generate_draft_async(
+            system_prompt=SYSTEM_PROMPT,
+            user_prompt=build_user_prompt(
+                site_context=site_context,
+                evidence=generation_evidence,
+                taxonomy=taxonomy,
+                rule_matrix=rule_matrix,
+            ),
+        )
+        dossier = build_validated_dossier(
+            site_context=site_context,
+            evidence=generation_evidence,
+            taxonomy=taxonomy,
+            draft=generation_result.draft,
+            usage=generation_result.usage,
+            rule_matrix=rule_matrix,
+            source_registry=self.source_registry,
+        )
+        review_result = self.semantic_reviewer.review(
+            site_context=site_context,
+            dossier=dossier,
+            evidence=dossier.evidence,
+            rule_matrix=rule_matrix,
+        )
+        dossier.semantic_review = review_result.review
+        dossier.semantic_review_usage = review_result.usage
+        return dossier
+
 
 def build_validated_dossier(
     *,

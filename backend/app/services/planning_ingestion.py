@@ -1,3 +1,5 @@
+import json
+import logging
 from pathlib import Path
 
 from app.core.paths import PROCESSED_DIR, RAW_PLANNING_DIR, RAW_UPLOADS_DIR, SAMPLE_DIR
@@ -15,6 +17,7 @@ from app.services.source_registry import checksum_sha256, source_id_for_document
 
 SOURCES_PATH = SAMPLE_DIR / "planning_sources.json"
 PLANNING_CACHE_DIR = PROCESSED_DIR / "planning_cache"
+logger = logging.getLogger(__name__)
 
 
 class PlanningIngestionService:
@@ -157,7 +160,11 @@ class PlanningIngestionService:
             return None
         try:
             meta = read_json(meta_path)
-        except Exception:
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Ignoring unreadable planning cache metadata at %s: %s", meta_path, exc)
+            return None
+        if not isinstance(meta, dict):
+            logger.warning("Ignoring planning cache metadata with invalid shape at %s", meta_path)
             return None
         if meta.get("signature") != self._planning_signature(commune):
             return None

@@ -111,8 +111,13 @@ def aws_credentials_available() -> bool:
     except ImportError:
         return False
     try:
+        from botocore.exceptions import BotoCoreError, ProfileNotFound
+    except ImportError:
+        BotoCoreError = RuntimeError
+        ProfileNotFound = RuntimeError
+    try:
         return boto3.Session(profile_name=profile).get_credentials() is not None
-    except Exception:
+    except (BotoCoreError, ProfileNotFound):
         return False
 
 
@@ -128,6 +133,8 @@ class Settings:
     llm_model: str | None = os.getenv("LLM_MODEL") or None
     llm_response_format: str | None = os.getenv("LLM_RESPONSE_FORMAT") or None
     llm_timeout_seconds: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "180"))
+    external_api_max_attempts: int = int(os.getenv("EXTERNAL_API_MAX_ATTEMPTS", "3"))
+    external_api_retry_delay_seconds: float = float(os.getenv("EXTERNAL_API_RETRY_DELAY_SECONDS", "0.25"))
     upload_max_bytes: int = int(os.getenv("UPLOAD_MAX_BYTES", str(10 * 1024 * 1024)))
     semantic_review_provider: str = _semantic_review_provider()
     semantic_review_api_key: str | None = os.getenv("SEMANTIC_REVIEW_API_KEY")

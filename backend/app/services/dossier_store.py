@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import re
 import threading
 from pathlib import Path
@@ -12,6 +13,7 @@ DOSSIER_CACHE_INDEX_PATH = DOSSIERS_DIR / "cache_index.json"
 DOSSIER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 CACHE_KEY_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 _CACHE_INDEX_LOCK = threading.RLock()
+logger = logging.getLogger(__name__)
 
 
 class DossierNotFoundError(ValueError):
@@ -77,7 +79,8 @@ def _read_cache_index() -> dict:
         return {}
     try:
         return json.loads(DOSSIER_CACHE_INDEX_PATH.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Ignoring unreadable dossier cache index at %s: %s", DOSSIER_CACHE_INDEX_PATH, exc)
         return {}
 
 

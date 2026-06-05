@@ -1,8 +1,10 @@
 import json
+import logging
 from pathlib import Path
 
 
 UPLOAD_METADATA_SUFFIX = ".meta.json"
+logger = logging.getLogger(__name__)
 
 UPLOAD_SUBTYPES: set[str] = {
     "condition_observation",
@@ -61,7 +63,8 @@ def read_upload_metadata(path: Path) -> dict:
         return {}
     try:
         return json.loads(metadata_path.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Ignoring unreadable upload metadata at %s: %s", metadata_path, exc)
         return {}
 
 

@@ -37,6 +37,12 @@ SEMANTIC_CASES_DIR = EVALUATION_DIR / "semantic_cases"
 class DisabledProvider:
     configured = False
 
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        raise RuntimeError("Embedding provider is disabled.")
+
+    def rerank(self, *, query, chunks, top_n) -> dict[str, float]:
+        return {}
+
 
 def load_cases(cases_dir: Path = CASES_DIR) -> list[EvaluationCase]:
     return [EvaluationCase.model_validate(item) for item in _read_case_files(cases_dir)]

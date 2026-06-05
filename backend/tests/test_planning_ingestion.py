@@ -72,3 +72,40 @@ def test_planning_cache_skips_second_pdf_parse(tmp_path, monkeypatch):
 
     assert len(parse_calls) == 1
     assert [chunk.chunk_id for chunk in second] == [chunk.chunk_id for chunk in first]
+
+
+def test_planning_cache_ignores_corrupt_metadata(tmp_path, monkeypatch):
+    raw_planning = tmp_path / "planning"
+    cache_dir = tmp_path / "cache"
+    sources_path = tmp_path / "planning_sources.json"
+    raw_planning.mkdir()
+    cache_dir.mkdir()
+    (raw_planning / "planning.pdf").write_bytes(b"%PDF-1.4\n% test placeholder")
+    (cache_dir / "testville_planning_chunks.jsonl").write_text("", encoding="utf-8")
+    (cache_dir / "testville_planning_chunks.meta.json").write_text("{not json", encoding="utf-8")
+    sources_path.write_text(
+        json.dumps(
+            [
+                {
+                    "document_id": "test_pag",
+                    "document_name": "Test PAG",
+                    "document_type": "PAG",
+                    "commune": "Testville",
+                    "local_filename": "planning.pdf",
+                    "url": "https://example.test/planning.pdf",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(planning_ingestion, "RAW_PLANNING_DIR", raw_planning)
+    monkeypatch.setattr(planning_ingestion, "PLANNING_CACHE_DIR", cache_dir)
+    monkeypatch.setattr(
+        planning_ingestion,
+        "parse_document",
+        lambda path: [PageText(page=1, text="Planning constraints for renovation.")],
+    )
+
+    chunks = PlanningIngestionService(sources_path=sources_path).load_planning_chunks_for_commune("Testville")
+
+    assert chunks

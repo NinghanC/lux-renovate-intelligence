@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any
 
 import httpx
@@ -10,10 +11,12 @@ from app.models.semantic_review import SemanticReview
 from app.models.usage import TokenUsage
 from app.services.llm_provider import extract_json_object, normalize_message_content
 from app.services.readiness_rule_engine import RuleMatrixItem
+from app.services.retry_policy import post_with_retries
 from app.services.token_monitor import build_real_usage
 
 
 SEMANTIC_REVIEW_VERSION = "2026-06-05.semantic-reviewer-v1"
+logger = logging.getLogger(__name__)
 
 
 REVIEW_SYSTEM_PROMPT = """You are a report-only semantic reviewer for renovation-readiness dossiers.
@@ -97,7 +100,7 @@ class SemanticReviewer:
         headers = {"Authorization": f"Bearer {self.api_key}"}
         try:
             with httpx.Client(timeout=self.timeout_seconds, transport=self.transport) as client:
-                response = client.post(endpoint, json=payload, headers=headers)
+                response = post_with_retries(client.post, endpoint, json=payload, headers=headers)
                 response.raise_for_status()
             response_payload = response.json()
             response_text = normalize_message_content(response_payload["choices"][0]["message"]["content"])
@@ -115,7 +118,8 @@ class SemanticReviewer:
                 response_payload=response_payload,
             )
             return SemanticReviewResult(review=review, usage=usage)
-        except Exception:
+        except (httpx.HTTPError, KeyError, json.JSONDecodeError, ValueError) as exc:
+            logger.warning("Semantic reviewer failed: %s", exc)
             return SemanticReviewResult(
                 review=failed_semantic_review(
                     provider=self.provider,

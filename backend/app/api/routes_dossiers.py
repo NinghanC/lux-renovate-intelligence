@@ -50,7 +50,7 @@ PURPOSE_QUERIES = {
 
 @router.post("/generate", response_model=DossierGenerateResponse)
 async def generate_dossier(request: DossierGenerateRequest) -> DossierGenerateResponse:
-    return await run_in_threadpool(_generate_dossier_sync, request)
+    return await _generate_dossier_async(request)
 
 
 def _generate_dossier_sync(request: DossierGenerateRequest) -> DossierGenerateResponse:
@@ -113,6 +113,90 @@ def _generate_dossier_sync(request: DossierGenerateRequest) -> DossierGenerateRe
         source_registry.refresh_snapshot()
         save_dossier(dossier)
         save_dossier_cache(cache_key, dossier, cache_signature)
+        return DossierGenerateResponse(dossier=dossier, cache_hit=False)
+    except SiteNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except LLMConfigurationError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "llm_not_configured",
+                "detail": str(exc),
+                "hints": [
+                    "Create a local .env file from .env.example.",
+                    "Set LLM_API_KEY, LLM_BASE_URL, and LLM_MODEL.",
+                    "Embedding settings are optional; keyword retrieval works without them.",
+                ],
+            },
+        ) from exc
+    except (LLMGenerationError, ValidationFailure) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+async def _generate_dossier_async(request: DossierGenerateRequest) -> DossierGenerateResponse:
+    try:
+        site_context = await run_in_threadpool(resolver.build_context, request.site_id)
+        cache_signature = build_generate_cache_signature(
+            request=request,
+            commune=site_context.commune,
+        )
+        cache_key = cache_key_for_signature(cache_signature)
+        if not request.force_refresh:
+            cached_dossier = await run_in_threadpool(load_cached_dossier, cache_key)
+            if cached_dossier is not None:
+                return DossierGenerateResponse(dossier=cached_dossier, cache_hit=True)
+
+        chunks = await run_in_threadpool(
+            ingestion.load_generate_chunks,
+            commune=site_context.commune,
+            site_id=request.site_id,
+            include_uploaded_documents=request.include_uploaded_documents,
+        )
+        if request.query:
+            retrieved = await run_in_threadpool(
+                retriever.retrieve_from_chunks,
+                chunks=chunks,
+                commune=site_context.commune,
+                query=request.query or DEFAULT_QUERY,
+                limit=request.max_evidence,
+                use_precomputed_embeddings=False,
+            )
+        else:
+            retrieved = await run_in_threadpool(
+                retriever.retrieve_for_purposes,
+                chunks=chunks,
+                commune=site_context.commune,
+                purpose_queries=PURPOSE_QUERIES,
+                limit_per_purpose=5,
+                total_limit=request.max_evidence,
+                use_precomputed_embeddings=False,
+            )
+        if not retrieved.results:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "no_evidence",
+                    "detail": "No evidence was retrieved for this site and query.",
+                    "hints": retrieved.limitations,
+                },
+            )
+        site_geojson = await run_in_threadpool(
+            geojson_service.build_site_geojson,
+            site_id=request.site_id,
+            coordinates=site_context.coordinates,
+        )
+        evidence = [
+            *retrieved.results,
+            *build_context_evidence(site_context, site_geojson),
+        ]
+        dossier = await generator.generate_async(
+            site_context=site_context,
+            evidence=evidence,
+            taxonomy=load_taxonomy(),
+        )
+        await run_in_threadpool(source_registry.refresh_snapshot)
+        await run_in_threadpool(save_dossier, dossier)
+        await run_in_threadpool(save_dossier_cache, cache_key, dossier, cache_signature)
         return DossierGenerateResponse(dossier=dossier, cache_hit=False)
     except SiteNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

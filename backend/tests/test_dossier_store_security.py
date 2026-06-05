@@ -115,6 +115,13 @@ def test_cache_load_ignores_malicious_index_dossier_id(isolated_dossier_dir):
     assert load_cached_dossier(cache_key) is None
 
 
+def test_cache_load_ignores_corrupt_index_json(isolated_dossier_dir):
+    cache_key = cache_key_for_signature({"site_id": "demo"})
+    (isolated_dossier_dir / "cache_index.json").write_text("{not json", encoding="utf-8")
+
+    assert load_cached_dossier(cache_key) is None
+
+
 def test_cache_index_updates_are_serialized(isolated_dossier_dir, monkeypatch):
     original_read_cache_index = dossier_store._read_cache_index
     active_readers = 0

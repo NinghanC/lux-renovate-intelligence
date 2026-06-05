@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+import anyio
 import httpx
 from pydantic import BaseModel
 
@@ -14,6 +15,7 @@ from app.models.schemas import (
     RiskSignal,
 )
 from app.models.usage import TokenUsage
+from app.services.retry_policy import async_post_with_retries
 from app.services.token_monitor import build_mock_usage, build_real_usage
 
 
@@ -51,7 +53,7 @@ class LLMProvider:
     def configured(self) -> bool:
         return bool(self.api_key and self.base_url and self.model)
 
-    def generate_draft(self, *, system_prompt: str, user_prompt: str) -> LLMGenerationResult:
+    def _request_parts(self, *, system_prompt: str, user_prompt: str) -> tuple[str, dict[str, Any], dict[str, str]]:
         if not self.configured:
             raise LLMConfigurationError(
                 "LLM is not configured. Set LLM_API_KEY, LLM_BASE_URL, and LLM_MODEL in .env."
@@ -68,9 +70,19 @@ class LLMProvider:
         if self.response_format == "json_object":
             payload["response_format"] = {"type": "json_object"}
         headers = {"Authorization": f"Bearer {self.api_key}"}
+        return endpoint, payload, headers
+
+    def generate_draft(self, *, system_prompt: str, user_prompt: str) -> LLMGenerationResult:
+        async def generate() -> LLMGenerationResult:
+            return await self.generate_draft_async(system_prompt=system_prompt, user_prompt=user_prompt)
+
+        return anyio.run(generate)
+
+    async def generate_draft_async(self, *, system_prompt: str, user_prompt: str) -> LLMGenerationResult:
+        endpoint, payload, headers = self._request_parts(system_prompt=system_prompt, user_prompt=user_prompt)
         try:
-            with httpx.Client(timeout=self.timeout_seconds) as client:
-                response = client.post(endpoint, json=payload, headers=headers)
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                response = await async_post_with_retries(client.post, endpoint, json=payload, headers=headers)
                 try:
                     response.raise_for_status()
                 except httpx.HTTPStatusError as exc:
@@ -78,24 +90,37 @@ class LLMProvider:
                         f"LLM request failed with HTTP {response.status_code}: {response.text[:500]}"
                     ) from exc
             response_payload = response.json()
-            content = response_payload["choices"][0]["message"]["content"]
-            response_text = normalize_message_content(content)
-            draft = DossierDraft.model_validate(json.loads(extract_json_object(response_text)))
-            usage = build_real_usage(
-                provider=settings.llm_provider,
-                model=self.model,
+            return self._parse_generation_response(
+                response_payload=response_payload,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                response_text=response_text,
-                response_payload=response_payload,
             )
-            return LLMGenerationResult(draft=draft, usage=usage)
         except LLMGenerationError:
             raise
         except httpx.HTTPError as exc:
             raise LLMGenerationError(f"LLM request failed: {exc}") from exc
         except (KeyError, json.JSONDecodeError, ValueError) as exc:
             raise LLMGenerationError(f"LLM response was not valid dossier JSON: {exc}") from exc
+
+    def _parse_generation_response(
+        self,
+        *,
+        response_payload: dict[str, Any],
+        system_prompt: str,
+        user_prompt: str,
+    ) -> LLMGenerationResult:
+        content = response_payload["choices"][0]["message"]["content"]
+        response_text = normalize_message_content(content)
+        draft = DossierDraft.model_validate(json.loads(extract_json_object(response_text)))
+        usage = build_real_usage(
+            provider=settings.llm_provider,
+            model=self.model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_text=response_text,
+            response_payload=response_payload,
+        )
+        return LLMGenerationResult(draft=draft, usage=usage)
 
 
 class MockLLMProvider:
@@ -195,6 +220,9 @@ class MockLLMProvider:
             ],
         )
         return LLMGenerationResult(draft=draft, usage=build_mock_usage())
+
+    async def generate_draft_async(self, *, system_prompt: str, user_prompt: str) -> LLMGenerationResult:
+        return self.generate_draft(system_prompt=system_prompt, user_prompt=user_prompt)
 
 
 def create_llm_provider() -> LLMProvider | MockLLMProvider:
