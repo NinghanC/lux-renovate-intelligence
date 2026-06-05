@@ -19,7 +19,7 @@ from app.services.evidence_validator import (
     validate_matrix_evidence_requirements,
     validate_taxonomy_complete,
 )
-from app.services.llm_provider import LLMProvider
+from app.services.llm_provider import LLMProvider, MockLLMProvider, create_llm_provider
 from app.services.source_registry import SourceRegistry
 
 
@@ -133,8 +133,12 @@ def build_user_prompt(
 
 
 class DossierGenerator:
-    def __init__(self, llm_provider: LLMProvider | None = None, source_registry: SourceRegistry | None = None):
-        self.llm_provider = llm_provider or LLMProvider()
+    def __init__(
+        self,
+        llm_provider: LLMProvider | MockLLMProvider | None = None,
+        source_registry: SourceRegistry | None = None,
+    ):
+        self.llm_provider = llm_provider or create_llm_provider()
         self.source_registry = source_registry or SourceRegistry()
 
     def generate(

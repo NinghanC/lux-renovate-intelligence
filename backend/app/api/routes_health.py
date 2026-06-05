@@ -12,6 +12,7 @@ def health() -> dict[str, object]:
         "status": "ok",
         "app": settings.app_name,
         "llm_provider": settings.llm_provider,
+        "llm_mock_mode": settings.llm_mock_mode,
         "rerank_provider": settings.rerank_provider,
         "ocr_provider": settings.ocr_provider,
         "llm_configured": settings.llm_configured,

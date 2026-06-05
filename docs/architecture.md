@@ -8,7 +8,7 @@
 4. Retrieval runs purpose-based queries for planning context, documentation gaps, technical risk, site inspection, and renovation constraints. Each query scores chunks with multilingual BM25 keyword relevance and optional embeddings.
 5. Optional rerank reranks the strongest retrieval candidates when configured. The recommended local setup uses AWS Bedrock Cohere Rerank 3.5.
 6. Retrieved chunks become source-aware `EvidenceObject` records. Site profile and lightweight GeoJSON context are also added as low-risk context evidence.
-7. The LLM receives site context, evidence, and taxonomy, then returns a `DossierDraft`.
+7. The default mock generator, or the configured LLM, receives site context, evidence, and taxonomy, then returns a `DossierDraft`.
 8. Validators check schema, required evidence refs for user-facing findings/checklists, source registry links, page ranges, taxonomy completeness, source-type support, and forbidden claims.
 9. Evidence coverage score is calculated by code and the validated dossier is saved locally.
 
@@ -21,6 +21,7 @@
 - `GeoJsonService`: reads lightweight GeoJSON and calculates coordinate distances.
 - `DocumentRetriever`: purpose-based multilingual BM25 + optional embedding retrieval and rerank orchestration.
 - `RerankProvider`: optional AWS Bedrock Cohere Rerank 3.5 adapter.
+- `MockLLMProvider`: deterministic demo generator for reviewer-friendly local runs without API keys.
 - `LLMProvider`: OpenAI-compatible chat completion adapter for Databricks Serving Endpoints.
 - `DossierGenerator`: prompt assembly, LLM call, and dossier assembly.
 - `EvidenceValidator`: guardrails, source integrity checks, and reference checks.
@@ -42,10 +43,18 @@ Local MVP storage is file-based:
 
 ## Provider Configuration
 
-The model layer is configured through environment variables. The local MVP uses Databricks for LLM and embedding calls and AWS for rerank and OCR:
+The model layer is configured through environment variables. The default local and Docker Compose setup uses mock LLM generation so the Generate flow works without credentials:
+
+```env
+LLM_PROVIDER=mock
+LLM_MOCK_MODE=true
+```
+
+For real external generation, use Databricks or another OpenAI-compatible endpoint for LLM and embedding calls and AWS for rerank and OCR:
 
 ```env
 LLM_PROVIDER=databricks
+LLM_MOCK_MODE=false
 LLM_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints
 LLM_MODEL=databricks-meta-llama-3-3-70b-instruct
 EMBEDDING_BASE_URL=https://dbc-c760812f-3e1e.cloud.databricks.com/serving-endpoints

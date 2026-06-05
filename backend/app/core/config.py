@@ -6,11 +6,15 @@ from dotenv import load_dotenv
 from app.core.paths import ROOT_DIR
 
 
-load_dotenv(ROOT_DIR / ".env", override=True)
+load_dotenv(ROOT_DIR / ".env", override=False)
 
 
 def _llm_provider() -> str:
-    return os.getenv("LLM_PROVIDER", "databricks")
+    return os.getenv("LLM_PROVIDER", "mock")
+
+
+def _env_flag(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).lower() in {"1", "true", "yes", "on"}
 
 
 def _llm_base_url() -> str:
@@ -100,6 +104,7 @@ def aws_credentials_available() -> bool:
 class Settings:
     app_name: str = "LuxRenovate Intelligence"
     llm_provider: str = _llm_provider()
+    llm_mock_mode: bool = _env_flag("LLM_MOCK_MODE")
     llm_api_key: str | None = os.getenv("LLM_API_KEY")
     llm_base_url: str | None = _llm_base_url()
     llm_model: str | None = os.getenv("LLM_MODEL", "databricks-meta-llama-3-3-70b-instruct")
@@ -141,6 +146,8 @@ class Settings:
 
     @property
     def llm_configured(self) -> bool:
+        if self.llm_mock_mode or self.llm_provider == "mock":
+            return True
         return bool(self.llm_api_key and self.llm_base_url and self.llm_model)
 
     @property

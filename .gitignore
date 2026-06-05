@@ -4,6 +4,8 @@ venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+pytest-cache-files-*/
+.tmp/
 .mypy_cache/
 logs/
 
@@ -17,6 +19,7 @@ frontend/vite.config.d.ts
 data/raw/uploads/
 data/processed/uploads/
 data/processed/dossiers/
+data/processed/planning_cache/
 data/processed/planning_chunks.jsonl
 data/processed/planning_embeddings.jsonl
 

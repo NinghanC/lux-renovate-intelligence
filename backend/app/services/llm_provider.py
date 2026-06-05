@@ -4,7 +4,14 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.models.schemas import DossierDraft
+from app.models.schemas import (
+    ChecklistItem,
+    DossierDraft,
+    Finding,
+    MissingInformationItem,
+    ReadinessMatrixItem,
+    RiskSignal,
+)
 
 
 class LLMConfigurationError(RuntimeError):
@@ -70,6 +77,189 @@ class LLMProvider:
             raise LLMGenerationError(f"LLM request failed: {exc}") from exc
         except (KeyError, json.JSONDecodeError, ValueError) as exc:
             raise LLMGenerationError(f"LLM response was not valid dossier JSON: {exc}") from exc
+
+
+class MockLLMProvider:
+    """Deterministic demo dossier generator used when no external LLM is configured."""
+
+    @property
+    def configured(self) -> bool:
+        return True
+
+    def generate_draft(self, *, system_prompt: str, user_prompt: str) -> DossierDraft:
+        del system_prompt
+        try:
+            payload = json.loads(user_prompt)
+        except json.JSONDecodeError as exc:
+            raise LLMGenerationError(f"Mock LLM could not parse generation prompt: {exc}") from exc
+
+        site_context = payload.get("site_context", {})
+        taxonomy = payload.get("taxonomy", [])
+        evidence = payload.get("evidence", [])
+        if not taxonomy:
+            raise LLMGenerationError("Mock LLM prompt did not include taxonomy.")
+        if not evidence:
+            raise LLMGenerationError("Mock LLM prompt did not include evidence.")
+
+        fallback_ref = evidence[0]["evidence_id"]
+        site_refs = [
+            item["evidence_id"]
+            for item in evidence
+            if item.get("source_type") in {"site_profile", "geojson"}
+        ] or [fallback_ref]
+        official_planning_refs = [
+            item["evidence_id"]
+            for item in evidence
+            if item.get("source_type") == "official_planning_pdf"
+        ]
+        planning_ref = official_planning_refs[0] if official_planning_refs else fallback_ref
+        address = site_context.get("address") or "the selected site"
+        commune = site_context.get("commune") or "the commune"
+
+        readiness_matrix = [
+            _mock_matrix_item(
+                category=category,
+                site_refs=site_refs,
+                planning_refs=official_planning_refs,
+            )
+            for category in taxonomy
+        ]
+        missing_items = [
+            MissingInformationItem(
+                item_id=f"missing_{index:03d}",
+                category_id=item.category_id,
+                description=f"Demo mode did not find enough verified documentation for {item.label.lower()}.",
+                evidence_refs=item.evidence_refs,
+                recommended_next_action=f"Collect or verify source documents for {item.label.lower()} before design decisions.",
+            )
+            for index, item in enumerate(readiness_matrix, start=1)
+            if item.status in {"missing", "unknown"}
+        ][:6]
+        checklist_refs = site_refs[:1] if site_refs else [fallback_ref]
+        if planning_ref not in checklist_refs:
+            checklist_refs.append(planning_ref)
+
+        return DossierDraft(
+            building_summary=(
+                f"Demo-mode dossier for {address} in {commune}. Retrieved evidence gives enough context "
+                "to start a renovation-readiness review, while several technical documents still need human verification."
+            ),
+            planning_findings=[
+                Finding(
+                    finding_id="finding_001",
+                    title="Retrieved planning context needs review",
+                    summary=(
+                        "The retrieved planning evidence should be checked against the intended renovation scope "
+                        "before permit or design conclusions are made."
+                    ),
+                    evidence_refs=[planning_ref],
+                    source_document=_source_name_for_ref(evidence, planning_ref),
+                    page=_page_for_ref(evidence, planning_ref),
+                    chunk_id=_chunk_for_ref(evidence, planning_ref),
+                )
+            ],
+            readiness_matrix=readiness_matrix,
+            missing_information_checklist=missing_items,
+            technical_risk_signals=[
+                RiskSignal(
+                    signal_id="signal_001",
+                    title="Technical records remain incomplete",
+                    description=(
+                        "Demo mode identifies documentation gaps that should be resolved by qualified reviewers "
+                        "before renovation scope, cost, or sequencing decisions."
+                    ),
+                    evidence_refs=[fallback_ref],
+                    priority="medium",
+                )
+            ],
+            inspection_checklist=_mock_checklist(checklist_refs),
+            limitations=[
+                "Generated in deterministic mock mode without calling an external LLM.",
+                "This dossier is for product review and workflow demonstration only.",
+                "All engineering, fire-safety, legal, planning, energy, and occupancy conclusions require human review.",
+            ],
+        )
+
+
+def create_llm_provider() -> LLMProvider | MockLLMProvider:
+    if settings.llm_mock_mode or settings.llm_provider == "mock":
+        return MockLLMProvider()
+    return LLMProvider()
+
+
+def _mock_matrix_item(
+    *,
+    category: dict[str, Any],
+    site_refs: list[str],
+    planning_refs: list[str],
+) -> ReadinessMatrixItem:
+    category_id = category["category_id"]
+    label = category["label"]
+    if category_id == "site_identity_location":
+        return ReadinessMatrixItem(
+            category_id=category_id,
+            label=label,
+            status="available",
+            summary="Demo evidence includes site identity, commune, coordinate, and nearby-context information.",
+            evidence_refs=site_refs,
+            recommended_next_action="Confirm address, parcel references, and coordinate precision with official records.",
+        )
+    if category_id == "planning_regulatory_context" and planning_refs:
+        return ReadinessMatrixItem(
+            category_id=category_id,
+            label=label,
+            status="partial",
+            summary="Official planning evidence was retrieved, but it still needs scope-specific interpretation.",
+            evidence_refs=planning_refs[:2],
+            recommended_next_action="Review the cited planning material against the proposed renovation works.",
+        )
+    return ReadinessMatrixItem(
+        category_id=category_id,
+        label=label,
+        status="missing",
+        summary=f"Demo mode did not identify verified source material sufficient for {label.lower()}.",
+        evidence_refs=[],
+        recommended_next_action=f"Request, upload, or inspect documentation covering {label.lower()}.",
+    )
+
+
+def _mock_checklist(evidence_refs: list[str]) -> list[ChecklistItem]:
+    tasks = [
+        ("check_001", "Verify site identity and access constraints on site.", "The demo evidence may not include parcel-level precision.", "high"),
+        ("check_002", "Compare retrieved planning context with the proposed renovation scope.", "Planning evidence needs scope-specific interpretation.", "high"),
+        ("check_003", "Request existing drawings and as-built records.", "Layout and intervention planning depend on verified drawings.", "medium"),
+        ("check_004", "Schedule structural and envelope walk-throughs.", "Older-building conditions need qualified visual review.", "medium"),
+        ("check_005", "Collect MEP, energy, fire-safety, and hazardous-material records.", "These records are common blockers before renovation design work.", "medium"),
+    ]
+    return [
+        ChecklistItem(
+            item_id=item_id,
+            task=task,
+            reason=reason,
+            evidence_refs=evidence_refs,
+            priority=priority,
+        )
+        for item_id, task, reason, priority in tasks
+    ]
+
+
+def _source_name_for_ref(evidence: list[dict[str, Any]], evidence_ref: str) -> str | None:
+    item = _evidence_for_ref(evidence, evidence_ref)
+    return item.get("source_name") if item else None
+
+
+def _page_for_ref(evidence: list[dict[str, Any]], evidence_ref: str) -> int | None:
+    item = _evidence_for_ref(evidence, evidence_ref)
+    return item.get("page") if item else None
+
+
+def _chunk_for_ref(evidence: list[dict[str, Any]], evidence_ref: str) -> str | None:
+    item = _evidence_for_ref(evidence, evidence_ref)
+    return item.get("chunk_id") if item else None
+
+
+def _evidence_for_ref(evidence: list[dict[str, Any]], evidence_ref: str) -> dict[str, Any] | None:
+    return next((item for item in evidence if item.get("evidence_id") == evidence_ref), None)
 
 
 def normalize_message_content(content: Any) -> str:

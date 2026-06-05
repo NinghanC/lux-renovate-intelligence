@@ -16,7 +16,7 @@ The MVP demonstrates how heterogeneous building-related sources can be converted
 - uploaded sample documents;
 - system-derived missing-information evidence.
 
-The backend normalizes these inputs into source-aware evidence records, retrieves relevant evidence through purpose-based multilingual search, sends bounded context to an OpenAI-compatible LLM, validates the generated dossier, and serves the result through a React + FastAPI web application.
+The backend normalizes these inputs into source-aware evidence records, retrieves relevant evidence through purpose-based multilingual search, sends bounded context to either the deterministic demo generator or an OpenAI-compatible LLM, validates the generated dossier, and serves the result through a React + FastAPI web application.
 
 ---
 
@@ -99,8 +99,8 @@ The MVP pipeline has seven stages:
 5. **Purpose-based evidence retrieval**
    Retrieve planning and uploaded-document evidence through multilingual BM25, optional embeddings, and optional rerank.
 
-6. **Bounded LLM dossier generation**
-   Send site context, evidence objects, and a fixed readiness taxonomy to an OpenAI-compatible LLM and request structured JSON.
+6. **Bounded dossier generation**
+   Send site context, evidence objects, and a fixed readiness taxonomy to the default deterministic mock generator or to an OpenAI-compatible LLM and request structured JSON.
 
 7. **Validation and storage**
    Validate schema, evidence references, source integrity, page ranges, claim support, taxonomy completeness, and forbidden final engineering claims. Store the validated dossier for later lookup.
@@ -194,7 +194,7 @@ After coordination, retrieved and generated evidence share common fields such as
 | Optional embeddings | `backend/app/services/embedding_provider.py` | `EmbeddingProvider.embed_texts()`, `cosine_similarity()` |
 | Optional rerank | `backend/app/services/rerank_provider.py` | `RerankProvider.rerank()` |
 | Optional OCR fallback | `backend/app/services/ocr_provider.py` | `OCRProvider.extract_text_from_png()`, `_textract_plain_text()` |
-| Generate dossier | `backend/app/services/dossier_generator.py`, `backend/app/services/llm_provider.py` | `DossierGenerator.generate()`, `build_user_prompt()`, `LLMProvider.generate_draft()` |
+| Generate dossier | `backend/app/services/dossier_generator.py`, `backend/app/services/llm_provider.py` | `DossierGenerator.generate()`, `build_user_prompt()`, `MockLLMProvider.generate_draft()` or `LLMProvider.generate_draft()` |
 | Validate dossier | `backend/app/services/evidence_validator.py` | `validate_dossier()`, `validate_evidence_refs()`, `validate_claim_support()`, `validate_forbidden_claims()` |
 | Calculate evidence coverage | `backend/app/services/coverage_calculator.py` | `calculate_coverage()` |
 | Store and retrieve dossiers | `backend/app/services/dossier_store.py` | `save_dossier()`, `load_dossier()`, `load_cached_dossier()` |
@@ -254,7 +254,7 @@ This rule-engine layer is intentionally listed as future work rather than implem
 
 The AI layer is deliberately bounded.
 
-The LLM receives:
+Generation receives:
 
 - selected site context;
 - retrieved evidence objects;
@@ -267,6 +267,7 @@ The main AI-related implementation points are:
 | Capability | File / method |
 |---|---|
 | LLM request construction | `backend/app/services/dossier_generator.py::build_user_prompt()` |
+| Demo-mode generation | `backend/app/services/llm_provider.py::MockLLMProvider.generate_draft()` |
 | Structured LLM call | `backend/app/services/llm_provider.py::LLMProvider.generate_draft()` |
 | JSON extraction and schema validation | `backend/app/services/llm_provider.py::extract_json_object()`, Pydantic models in `backend/app/models/schemas.py` |
 | Dossier orchestration | `backend/app/services/dossier_generator.py::DossierGenerator.generate()` |
@@ -280,6 +281,31 @@ A dedicated evaluation layer is not part of the current MVP implementation. It i
 ---
 
 ## Run Locally
+
+### Reviewer demo path
+
+For the fastest demo, use Docker Compose from the repository root:
+
+```bash
+docker compose up
+```
+
+Then open:
+
+```text
+http://localhost:5173
+```
+
+Docker Compose starts the backend in deterministic mock generation mode:
+
+```env
+LLM_PROVIDER=mock
+LLM_MOCK_MODE=true
+```
+
+No LLM API key is required for the demo. The reviewer can select a Luxembourg demo site, optionally upload a file from `data/sample/upload_examples/`, click **Generate**, and review the readiness matrix, coverage score, missing-information checklist, inspection checklist, evidence panel, source links, and limitations.
+
+Use this framing when presenting the demo: the product is exercising retrieval, evidence normalization, validation, storage, and the full dossier UI; the generated narrative is deterministic demo output so the workflow is reliable without external credentials. Real LLM generation is available by disabling mock mode and setting the LLM environment variables below.
 
 ### 1. Setup
 
@@ -309,14 +335,15 @@ On Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Edit `.env` if you want to run real dossier generation with an external LLM endpoint.
+By default, the backend uses deterministic mock generation even without a local `.env`, and `.env.example` keeps that same default. Reviewers can click **Generate** without any external API key. The mock path still runs retrieval, evidence normalization, validation, storage, and the UI review flow, but it does not call an LLM and its narrative is intentionally demo-grade.
 
-Current generation requires an OpenAI-compatible LLM configuration. Without `LLM_API_KEY`, the app still starts and supports site viewing, source listing, uploads, retrieval, and UI navigation, but `POST /api/dossiers/generate` returns a clear `llm_not_configured` error.
+Edit `.env` if you want to run real dossier generation with an external LLM endpoint. To use Databricks or another OpenAI-compatible endpoint, set `LLM_PROVIDER=databricks`, set `LLM_MOCK_MODE=false`, and provide the LLM variables below.
 
 Recommended production-style variables are placeholders, not committed credentials:
 
 ```env
 LLM_PROVIDER=databricks
+LLM_MOCK_MODE=false
 LLM_API_KEY=<your-token>
 LLM_BASE_URL=https://<your-databricks-workspace-url>/serving-endpoints
 LLM_MODEL=<your-chat-serving-endpoint-name>
@@ -374,7 +401,7 @@ In the browser:
 6. Review the readiness matrix, coverage score, missing information, risk signals, inspection checklist, evidence panel, and limitations.
 7. Open source files from the evidence/source area where available.
 
-If no LLM credentials are configured, step 5 returns a configuration error. The rest of the app remains usable for reviewing the data pipeline, source registry, site context, uploads, and retrieval flow.
+With the default mock configuration, step 5 generates a demo dossier without credentials. If you disable mock mode without configuring a real LLM, step 5 returns a clear `llm_not_configured` error while the rest of the app remains usable for reviewing the data pipeline, source registry, site context, uploads, and retrieval flow.
 
 ### 4. Refresh public planning PDFs
 

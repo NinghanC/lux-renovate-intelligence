@@ -152,6 +152,7 @@ def build_generate_cache_signature(*, request: DossierGenerateRequest, commune: 
         },
         "providers": {
             "llm_provider": settings.llm_provider,
+            "llm_mock_mode": settings.llm_mock_mode,
             "llm_base_url": settings.llm_base_url,
             "llm_model": settings.llm_model,
             "llm_response_format": settings.llm_response_format,
