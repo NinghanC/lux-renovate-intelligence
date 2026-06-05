@@ -444,6 +444,33 @@
     }
   },
   {
+    "source_id": "src_upload_demo_lux_laangfur_001_upload_58e7c3ffa742_sample_condition_observations",
+    "display_name": "demo_lux_laangfur_001_upload_58e7c3ffa742_sample_condition_observations.pdf",
+    "source_type": "uploaded_document",
+    "source_subtype": "condition_observation",
+    "modality": "pdf",
+    "authority": "user_supplied",
+    "commune": null,
+    "language": null,
+    "original_url": null,
+    "source_page_url": null,
+    "local_path": "C:\\Git\\lux-renovate-intelligence\\data\\raw\\uploads\\demo_lux_laangfur_001_upload_58e7c3ffa742_sample_condition_observations.pdf",
+    "checksum_sha256": "e3a60d970b3291ac0b4b681091c79629f955b302b455e4ade101925398013b07",
+    "page_count": 2,
+    "parser": "pymupdf_or_ocr",
+    "status": "available",
+    "metadata": {
+      "document_id": "upload_demo_lux_laangfur_001_upload_58e7c3ffa742_sample_condition_observations",
+      "upload_document_id": "upload_58e7c3ffa742",
+      "source_id": "src_upload_demo_lux_laangfur_001_upload_58e7c3ffa742_sample_condition_observations",
+      "source_subtype": "condition_observation",
+      "original_filename": "sample_condition_observations.pdf",
+      "site_id": "demo_lux_laangfur_001",
+      "commune": "Luxembourg",
+      "modality": "pdf"
+    }
+  },
+  {
     "source_id": "src_upload_demo_lux_laangfur_001_upload_7227863b1ec9_sample_condition_observations",
     "display_name": "demo_lux_laangfur_001_upload_7227863b1ec9_sample_condition_observations.pdf",
     "source_type": "uploaded_document",
@@ -471,6 +498,33 @@
     }
   },
   {
+    "source_id": "src_upload_demo_lux_laangfur_001_upload_8f23b817cf0b_preliminary_site_visit_notes",
+    "display_name": "demo_lux_laangfur_001_upload_8f23b817cf0b_preliminary_site_visit_notes.txt",
+    "source_type": "uploaded_document",
+    "source_subtype": "inspection_report",
+    "modality": "text",
+    "authority": "user_supplied",
+    "commune": null,
+    "language": null,
+    "original_url": null,
+    "source_page_url": null,
+    "local_path": "C:\\Git\\lux-renovate-intelligence\\data\\raw\\uploads\\demo_lux_laangfur_001_upload_8f23b817cf0b_preliminary_site_visit_notes.txt",
+    "checksum_sha256": "91f0fdb904ad77cc34f70476136ed1d43cc0c5d39813995053860d3399df808c",
+    "page_count": 1,
+    "parser": "text",
+    "status": "available",
+    "metadata": {
+      "document_id": "upload_demo_lux_laangfur_001_upload_8f23b817cf0b_preliminary_site_visit_notes",
+      "upload_document_id": "upload_8f23b817cf0b",
+      "source_id": "src_upload_demo_lux_laangfur_001_upload_8f23b817cf0b_preliminary_site_visit_notes",
+      "source_subtype": "inspection_report",
+      "original_filename": "preliminary_site_visit_notes.txt",
+      "site_id": "demo_lux_laangfur_001",
+      "commune": "Luxembourg",
+      "modality": "text"
+    }
+  },
+  {
     "source_id": "src_upload_demo_lux_laangfur_001_upload_927cd1cb8a22_sample_condition_observations",
     "display_name": "demo_lux_laangfur_001_upload_927cd1cb8a22_sample_condition_observations.pdf",
     "source_type": "uploaded_document",
@@ -495,6 +549,33 @@
       "site_id": "demo_lux_laangfur_001",
       "commune": "Luxembourg",
       "modality": "pdf"
+    }
+  },
+  {
+    "source_id": "src_upload_demo_lux_laangfur_001_upload_94378f048da1_preliminary_site_visit_notes",
+    "display_name": "demo_lux_laangfur_001_upload_94378f048da1_preliminary_site_visit_notes.txt",
+    "source_type": "uploaded_document",
+    "source_subtype": "inspection_report",
+    "modality": "text",
+    "authority": "user_supplied",
+    "commune": null,
+    "language": null,
+    "original_url": null,
+    "source_page_url": null,
+    "local_path": "C:\\Git\\lux-renovate-intelligence\\data\\raw\\uploads\\demo_lux_laangfur_001_upload_94378f048da1_preliminary_site_visit_notes.txt",
+    "checksum_sha256": "91f0fdb904ad77cc34f70476136ed1d43cc0c5d39813995053860d3399df808c",
+    "page_count": 1,
+    "parser": "text",
+    "status": "available",
+    "metadata": {
+      "document_id": "upload_demo_lux_laangfur_001_upload_94378f048da1_preliminary_site_visit_notes",
+      "upload_document_id": "upload_94378f048da1",
+      "source_id": "src_upload_demo_lux_laangfur_001_upload_94378f048da1_preliminary_site_visit_notes",
+      "source_subtype": "inspection_report",
+      "original_filename": "preliminary_site_visit_notes.txt",
+      "site_id": "demo_lux_laangfur_001",
+      "commune": "Luxembourg",
+      "modality": "text"
     }
   },
   {

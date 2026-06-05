@@ -429,6 +429,12 @@ $env:PYTHONPATH="backend"
 
 The evaluation runner executes two deterministic cases and one semantic boundary case. It checks retrieval source coverage, rule-derived readiness matrix behavior, locked matrix consistency, grounding rates, forbidden final claims, coverage-score consistency, derived missing-information evidence, and the absence-of-evidence-not-risk semantic boundary. Reports are written to `data/evaluation/runs/` and are ignored by git. See `docs/evaluation.md`.
 
+### Token and generation monitoring
+
+Each generated dossier includes token and generation usage metadata. In mock mode, no external LLM call is made and external token usage is reported as zero. In real LLM mode, the backend records provider-reported token usage when available and falls back to a lightweight local estimate otherwise.
+
+The UI displays generation mode, provider, model, whether an external LLM was called, and total reported or estimated tokens. This is an MVP observability feature for transparency and reproducibility, not a billing system.
+
 ### 4. Refresh public planning PDFs
 
 The repository includes local public planning PDFs. To refresh them:

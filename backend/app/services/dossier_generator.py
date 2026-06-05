@@ -11,6 +11,7 @@ from app.models.schemas import (
     ReadinessTaxonomyItem,
     SiteContext,
 )
+from app.models.usage import TokenUsage
 from app.services.coverage_calculator import calculate_coverage
 from app.services.evidence_validator import (
     validate_claim_support,
@@ -167,7 +168,7 @@ class DossierGenerator:
             taxonomy=taxonomy,
         )
         generation_evidence = ensure_rule_missing_evidence_available(evidence, rule_matrix)
-        draft = self.llm_provider.generate_draft(
+        generation_result = self.llm_provider.generate_draft(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=build_user_prompt(
                 site_context=site_context,
@@ -180,7 +181,8 @@ class DossierGenerator:
             site_context=site_context,
             evidence=generation_evidence,
             taxonomy=taxonomy,
-            draft=draft,
+            draft=generation_result.draft,
+            usage=generation_result.usage,
             rule_matrix=rule_matrix,
             source_registry=self.source_registry,
         )
@@ -192,6 +194,7 @@ def build_validated_dossier(
     evidence: list[EvidenceObject],
     taxonomy: list[ReadinessTaxonomyItem],
     draft: DossierDraft,
+    usage: TokenUsage | None = None,
     rule_matrix: list[RuleMatrixItem] | None = None,
     source_registry: SourceRegistry | None = None,
 ) -> Dossier:
@@ -228,6 +231,7 @@ def build_validated_dossier(
         inspection_checklist=draft.inspection_checklist,
         evidence=evidence_with_missing,
         limitations=draft.limitations,
+        usage=usage,
     )
     validate_evidence_source_integrity(evidence_with_missing, sources)
     validate_forbidden_claims(dossier)

@@ -5,8 +5,8 @@
     "query": null,
     "uploaded_documents": [],
     "generation_mode": "mock",
-    "include_uploaded_documents": true,
-    "max_evidence": 20
+    "include_uploaded_documents": false,
+    "max_evidence": 12
   },
   "expectations": {
     "retrieval": {

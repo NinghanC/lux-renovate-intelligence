@@ -102,6 +102,22 @@ export interface CoverageScore {
   not_applicable: number;
 }
 
+export interface TokenUsage {
+  generation_mode: "mock" | "real";
+  llm_provider: string;
+  llm_model: string | null;
+  external_llm_called: boolean;
+  request_count: number;
+  input_tokens_estimated: number;
+  output_tokens_estimated: number;
+  total_tokens_estimated: number;
+  input_tokens_reported: number | null;
+  output_tokens_reported: number | null;
+  total_tokens_reported: number | null;
+  usage_source: "mock" | "provider_reported" | "estimated";
+  created_at: string;
+}
+
 export interface ReadinessMatrixItem {
   category_id: string;
   label: string;
@@ -159,4 +175,5 @@ export interface Dossier {
   inspection_checklist: ChecklistItem[];
   evidence: EvidenceObject[];
   limitations: string[];
+  usage: TokenUsage | null;
 }

@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 import httpx
+from pydantic import BaseModel
 
 from app.core.config import settings
 from app.models.schemas import (
@@ -12,6 +13,8 @@ from app.models.schemas import (
     ReadinessMatrixItem,
     RiskSignal,
 )
+from app.models.usage import TokenUsage
+from app.services.token_monitor import build_mock_usage, build_real_usage
 
 
 class LLMConfigurationError(RuntimeError):
@@ -20,6 +23,11 @@ class LLMConfigurationError(RuntimeError):
 
 class LLMGenerationError(RuntimeError):
     pass
+
+
+class LLMGenerationResult(BaseModel):
+    draft: DossierDraft
+    usage: TokenUsage
 
 
 class LLMProvider:
@@ -43,7 +51,7 @@ class LLMProvider:
     def configured(self) -> bool:
         return bool(self.api_key and self.base_url and self.model)
 
-    def generate_draft(self, *, system_prompt: str, user_prompt: str) -> DossierDraft:
+    def generate_draft(self, *, system_prompt: str, user_prompt: str) -> LLMGenerationResult:
         if not self.configured:
             raise LLMConfigurationError(
                 "LLM is not configured. Set LLM_API_KEY, LLM_BASE_URL, and LLM_MODEL in .env."
@@ -69,8 +77,19 @@ class LLMProvider:
                     raise LLMGenerationError(
                         f"LLM request failed with HTTP {response.status_code}: {response.text[:500]}"
                     ) from exc
-            content = response.json()["choices"][0]["message"]["content"]
-            return DossierDraft.model_validate(json.loads(extract_json_object(normalize_message_content(content))))
+            response_payload = response.json()
+            content = response_payload["choices"][0]["message"]["content"]
+            response_text = normalize_message_content(content)
+            draft = DossierDraft.model_validate(json.loads(extract_json_object(response_text)))
+            usage = build_real_usage(
+                provider=settings.llm_provider,
+                model=self.model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_text=response_text,
+                response_payload=response_payload,
+            )
+            return LLMGenerationResult(draft=draft, usage=usage)
         except LLMGenerationError:
             raise
         except httpx.HTTPError as exc:
@@ -86,7 +105,7 @@ class MockLLMProvider:
     def configured(self) -> bool:
         return True
 
-    def generate_draft(self, *, system_prompt: str, user_prompt: str) -> DossierDraft:
+    def generate_draft(self, *, system_prompt: str, user_prompt: str) -> LLMGenerationResult:
         del system_prompt
         try:
             payload = json.loads(user_prompt)
@@ -135,7 +154,7 @@ class MockLLMProvider:
         if planning_ref not in checklist_refs:
             checklist_refs.append(planning_ref)
 
-        return DossierDraft(
+        draft = DossierDraft(
             building_summary=(
                 f"Demo-mode dossier for {address} in {commune}. Retrieved evidence gives enough context "
                 "to start a renovation-readiness review, while several technical documents still need human verification."
@@ -175,6 +194,7 @@ class MockLLMProvider:
                 "This is not a final engineering assessment; all engineering, fire-safety, legal, planning, energy, and occupancy conclusions require human review.",
             ],
         )
+        return LLMGenerationResult(draft=draft, usage=build_mock_usage())
 
 
 def create_llm_provider() -> LLMProvider | MockLLMProvider:

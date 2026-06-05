@@ -43,6 +43,8 @@ Hard failures include:
 
 Soft metrics such as evidence count and source distribution are written to the report for inspection.
 
+Evaluation reports also include generation usage fields from each dossier, including generation mode, whether an external LLM was called, token usage source, and total reported or estimated tokens. Mock-mode evaluation expects no external LLM call and zero external tokens.
+
 ## Semantic Layer
 
 Semantic cases live in `data/evaluation/semantic_cases/`.
@@ -59,3 +61,5 @@ It does not replace SECO engineer review.
 It does not measure production model drift.
 It does not yet use human expert labels.
 Real LLM evaluation is optional and should be reviewed manually, not used as a CI hard failure.
+
+Token usage in real LLM evaluation is a soft observability metric. The MVP does not enforce token budgets or estimate provider cost.

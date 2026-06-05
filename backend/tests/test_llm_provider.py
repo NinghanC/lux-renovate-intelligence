@@ -63,7 +63,7 @@ def test_mock_llm_provider_generates_validated_dossier():
     )
     prompt_payload = json.loads(user_prompt)
     assert any(evidence_id.startswith("ev_missing_") for evidence_id in prompt_payload["allowed_evidence_ids"])
-    draft = MockLLMProvider().generate_draft(
+    result = MockLLMProvider().generate_draft(
         system_prompt="system",
         user_prompt=user_prompt,
     )
@@ -71,12 +71,17 @@ def test_mock_llm_provider_generates_validated_dossier():
         site_context=context,
         evidence=generation_evidence,
         taxonomy=taxonomy,
-        draft=draft,
+        draft=result.draft,
+        usage=result.usage,
         rule_matrix=rule_matrix,
         source_registry=None,
     )
 
     assert dossier.building_summary.startswith("Demo-mode dossier")
+    assert dossier.usage is not None
+    assert dossier.usage.generation_mode == "mock"
+    assert dossier.usage.external_llm_called is False
+    assert dossier.usage.total_tokens_estimated == 0
     assert len(dossier.inspection_checklist) >= 5
     assert {item.category_id for item in dossier.readiness_matrix} == {
         item.category_id for item in taxonomy

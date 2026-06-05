@@ -35,6 +35,11 @@ def compute_deterministic_metrics(
         "coverage_score_consistent": dossier.coverage_score == calculate_coverage(dossier.readiness_matrix),
         "missing_information_evidence_coverage": missing_information_evidence_coverage(dossier),
         "site_mismatch_count": site_mismatch_count(evidence, dossier.site_context.commune, source_registry),
+        "generation_mode": dossier.usage.generation_mode if dossier.usage else None,
+        "external_llm_called": dossier.usage.external_llm_called if dossier.usage else None,
+        "total_tokens_estimated": dossier.usage.total_tokens_estimated if dossier.usage else None,
+        "total_tokens_reported": dossier.usage.total_tokens_reported if dossier.usage else None,
+        "usage_source": dossier.usage.usage_source if dossier.usage else None,
     }
 
     retrieval = case.expectations.retrieval

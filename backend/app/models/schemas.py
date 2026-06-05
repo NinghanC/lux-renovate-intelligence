@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.usage import TokenUsage
+
 
 ReadinessStatus = Literal["available", "partial", "missing", "unknown", "not_applicable"]
 Priority = Literal["high", "medium", "low"]
@@ -264,6 +266,7 @@ class Dossier(BaseModel):
     inspection_checklist: list[ChecklistItem]
     evidence: list[EvidenceObject]
     limitations: list[str]
+    usage: TokenUsage | None = None
 
 
 class DossierGenerateRequest(BaseModel):

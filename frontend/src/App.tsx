@@ -463,6 +463,7 @@ function App() {
                   <em>Not a risk or compliance score.</em>
                 </div>
                 <SourceTypeCoverage evidence={dossier.evidence} />
+                <GenerationUsage usage={dossier.usage} />
               </div>
             </section>
 
@@ -888,6 +889,30 @@ function SourceTypeCoverage({ evidence }: { evidence: EvidenceObject[] }) {
           </p>
         ))}
       </div>
+    </div>
+  );
+}
+
+function GenerationUsage({ usage }: { usage: Dossier["usage"] }) {
+  if (!usage) {
+    return null;
+  }
+  const tokenTotal = usage.total_tokens_reported ?? usage.total_tokens_estimated;
+  const tokenLabel = usage.total_tokens_reported === null ? "estimated" : "reported";
+  return (
+    <div className="source-coverage">
+      <span>Generation</span>
+      <div>
+        <strong>{usage.generation_mode}</strong>
+        <p>External LLM: {usage.external_llm_called ? "yes" : "no"}</p>
+      </div>
+      <p>
+        {usage.llm_provider}
+        {usage.llm_model ? ` / ${usage.llm_model}` : ""}
+      </p>
+      <p>
+        Tokens: {tokenTotal.toLocaleString()} {tokenLabel}
+      </p>
     </div>
   );
 }
