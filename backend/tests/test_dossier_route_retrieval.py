@@ -5,6 +5,10 @@ from fastapi.testclient import TestClient
 from app.api import routes_dossiers
 from app.main import app
 from app.models.schemas import CoverageScore, Dossier, EvidenceObject, EvidenceType, RetrievedEvidence
+from app.services.dossier_generator import PROMPT_VERSION
+from app.services.evidence_validator import VALIDATOR_VERSION
+from app.services.readiness_rule_engine import READINESS_RULE_ENGINE_VERSION
+from app.services.taxonomy import TAXONOMY_VERSION, taxonomy_fingerprint
 
 
 class DummyIngestion:
@@ -162,3 +166,20 @@ def test_generate_with_advanced_options_uses_custom_query_and_bypasses_cache(mon
     assert capturing_retriever.query_kwargs["limit"] == 8
     assert capturing_ingestion.load_kwargs["include_uploaded_documents"] is False
     assert capturing_ingestion.uploaded_signature_kwargs["include_uploaded_documents"] is False
+
+
+def test_generate_cache_signature_includes_generation_contract_versions(monkeypatch):
+    monkeypatch.setattr(routes_dossiers, "ingestion", DummyIngestion())
+    signature = routes_dossiers.build_generate_cache_signature(
+        request=routes_dossiers.DossierGenerateRequest(site_id="demo_lux_laangfur_001"),
+        commune="Luxembourg",
+    )
+
+    assert signature["cache_version"] == 2
+    assert signature["generation_contract"] == {
+        "prompt_version": PROMPT_VERSION,
+        "readiness_rule_engine_version": READINESS_RULE_ENGINE_VERSION,
+        "validator_version": VALIDATOR_VERSION,
+        "taxonomy_version": TAXONOMY_VERSION,
+        "taxonomy_fingerprint": taxonomy_fingerprint(),
+    }

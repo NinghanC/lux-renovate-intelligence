@@ -4,7 +4,7 @@ from app.models.schemas import Dossier, DossierGenerateRequest, DossierGenerateR
 from app.core.config import settings
 from app.services.context_evidence import build_context_evidence
 from app.services.document_retriever import DocumentRetriever
-from app.services.dossier_generator import DossierGenerator
+from app.services.dossier_generator import PROMPT_VERSION, DossierGenerator
 from app.services.dossier_store import (
     DossierNotFoundError,
     cache_key_for_signature,
@@ -13,13 +13,14 @@ from app.services.dossier_store import (
     save_dossier,
     save_dossier_cache,
 )
-from app.services.evidence_validator import ValidationFailure
+from app.services.evidence_validator import VALIDATOR_VERSION, ValidationFailure
 from app.services.llm_provider import LLMConfigurationError, LLMGenerationError
 from app.services.planning_ingestion import PlanningIngestionService
 from app.services.geospatial import GeoJsonService
+from app.services.readiness_rule_engine import READINESS_RULE_ENGINE_VERSION
 from app.services.site_resolver import SiteNotFoundError, SiteResolver
 from app.services.source_registry import SourceRegistry
-from app.services.taxonomy import load_taxonomy
+from app.services.taxonomy import TAXONOMY_VERSION, load_taxonomy, taxonomy_fingerprint
 
 
 router = APIRouter(prefix="/api/dossiers", tags=["dossiers"])
@@ -136,12 +137,19 @@ def get_dossier(dossier_id: str) -> Dossier:
 
 def build_generate_cache_signature(*, request: DossierGenerateRequest, commune: str) -> dict:
     return {
-        "cache_version": 1,
+        "cache_version": 2,
         "site_id": request.site_id,
         "commune": commune,
         "query": request.query or None,
         "include_uploaded_documents": request.include_uploaded_documents,
         "max_evidence": request.max_evidence,
+        "generation_contract": {
+            "prompt_version": PROMPT_VERSION,
+            "readiness_rule_engine_version": READINESS_RULE_ENGINE_VERSION,
+            "validator_version": VALIDATOR_VERSION,
+            "taxonomy_version": TAXONOMY_VERSION,
+            "taxonomy_fingerprint": taxonomy_fingerprint(),
+        },
         "retrieval": {
             "mode": "custom_query" if request.query else "purpose_based",
             "purpose_queries": PURPOSE_QUERIES if not request.query else None,

@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from app.models.schemas import EvidenceObject, ReadinessStatus, ReadinessTaxonomyItem, SiteContext
 
 
+READINESS_RULE_ENGINE_VERSION = "2026-06-05.rule-matrix-v1"
+
+
 @dataclass(frozen=True)
 class RuleMatrixItem:
     category_id: str

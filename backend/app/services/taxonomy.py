@@ -1,9 +1,13 @@
+import hashlib
+import json
+
 from app.core.paths import SAMPLE_DIR
 from app.models.schemas import ReadinessTaxonomyItem
 from app.services.json_store import read_json
 
 
 TAXONOMY_PATH = SAMPLE_DIR / "readiness_taxonomy.json"
+TAXONOMY_VERSION = "2026-06-05.readiness-taxonomy-v1"
 
 
 DEFAULT_TAXONOMY = [
@@ -78,4 +82,10 @@ def load_taxonomy() -> list[ReadinessTaxonomyItem]:
 
 def taxonomy_ids() -> set[str]:
     return {item.category_id for item in load_taxonomy()}
+
+
+def taxonomy_fingerprint() -> str:
+    payload = [item.model_dump(mode="json") for item in load_taxonomy()]
+    serialized = json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 

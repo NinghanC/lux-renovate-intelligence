@@ -5,6 +5,9 @@ from app.services.readiness_rule_engine import RuleMatrixItem
 from app.services.taxonomy import taxonomy_ids
 
 
+VALIDATOR_VERSION = "2026-06-05.locked-matrix-and-claims-v1"
+
+
 class ValidationFailure(ValueError):
     pass
 

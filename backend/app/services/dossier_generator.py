@@ -26,6 +26,9 @@ from app.services.readiness_rule_engine import RuleMatrixItem, build_rule_matrix
 from app.services.source_registry import SourceRegistry
 
 
+PROMPT_VERSION = "2026-06-05.rule-matrix-missing-evidence-v1"
+
+
 SYSTEM_PROMPT = """You are a bounded renovation-readiness assistant for SECO-style engineering preparation.
 Use only the provided site context, taxonomy, and evidence. Do not use outside facts.
 Do not make final structural safety, fire safety, legal, planning-compliance, energy, or occupancy decisions.
