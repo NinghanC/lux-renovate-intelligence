@@ -2,23 +2,23 @@
   "case_id": "demo_lux_custom_query",
   "inputs": {
     "site_id": "demo_lux_laangfur_001",
-    "query": "roof facade humidity renovation constraints",
+    "query": "planning constraints renovation permits",
     "uploaded_documents": [],
     "generation_mode": "mock",
-    "include_uploaded_documents": true,
+    "include_uploaded_documents": false,
     "max_evidence": 8
   },
   "expectations": {
     "retrieval": {
       "min_evidence": 4,
       "required_source_types": [
-        "uploaded_document",
+        "official_planning_pdf",
         "site_profile",
         "geojson"
       ],
       "required_supports": [
         "site_identity_location",
-        "building_envelope_roof"
+        "planning_regulatory_context"
       ],
       "max_site_mismatch_count": 0
     },
@@ -27,9 +27,13 @@
         "status": "available",
         "requires_evidence": true
       },
-      "building_envelope_roof": {
+      "planning_regulatory_context": {
         "status": "partial",
         "requires_evidence": true
+      },
+      "building_envelope_roof": {
+        "status": "missing",
+        "requires_next_action": true
       },
       "structural_documentation": {
         "status": "missing",
