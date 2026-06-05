@@ -54,8 +54,8 @@ From the user's perspective, the MVP supports this workflow:
 2. **Review site context.**
    The user can see basic site information, commune, coordinates, and lightweight GeoJSON context.
 
-3. **Optionally upload case documents.**
-   The user can upload a sample PDF, TXT, or Markdown file, such as an inspection note, environmental authorization note, HVAC record, asbestos or pollutant inventory, commissioning report, survey note, or synthetic technical document.
+3. **Optionally upload and manage case documents.**
+   The user can upload one or more sample PDF, TXT, or Markdown files, such as an inspection note, environmental authorization note, HVAC record, asbestos or pollutant inventory, commissioning report, survey note, or synthetic technical document. Active uploaded documents can be listed, removed, or reclassified through the document inventory endpoints before dossier generation.
 
 4. **Generate a mission readiness dossier.**
    The user clicks **Generate**. The backend retrieves evidence, builds context, calls the configured LLM or returns a cached dossier when the inputs are unchanged, validates the output, stores the dossier, and returns it to the UI.
@@ -63,14 +63,14 @@ From the user's perspective, the MVP supports this workflow:
 5. **Review the generated dossier.**
    The UI displays:
    - case summary;
-   - mission readiness matrix;
+   - mission readiness matrix grouped by phase and criticality;
    - evidence coverage score;
    - missing mission-critical documents;
    - items requiring expert validation;
    - mission preparation checklist;
-   - source type coverage;
-   - evidence panel;
-   - system transparency;
+   - active document inventory and detected source subtypes;
+   - source type coverage and evidence references;
+   - system transparency, including generation mode, token usage, validation, and semantic-review status;
    - limitations.
 
 6. **Inspect the evidence behind findings.**
@@ -313,7 +313,7 @@ API_AUTH_ENABLED=true
 API_AUTH_TOKEN=<set-a-local-development-token>
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 CORS_ALLOW_CREDENTIALS=false
-CORS_METHODS=GET,POST
+CORS_METHODS=GET,POST,PATCH,DELETE
 CORS_HEADERS=Content-Type,X-API-Key
 VITE_API_TIMEOUT_MS=240000
 LLM_PROVIDER=mock
@@ -396,7 +396,7 @@ API_AUTH_ENABLED=true
 API_AUTH_TOKEN=<your-local-api-token>
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 CORS_ALLOW_CREDENTIALS=false
-CORS_METHODS=GET,POST
+CORS_METHODS=GET,POST,PATCH,DELETE
 CORS_HEADERS=Content-Type,X-API-Key
 VITE_API_TIMEOUT_MS=240000
 
@@ -535,16 +535,22 @@ GET /api/diagnostics
 Main API routes:
 
 ```text
-GET  /api/sites
-GET  /api/sites/{site_id}/context
-GET  /api/sites/{site_id}/geojson
-POST /api/documents/upload
-GET  /api/evidence?site_id=...&query=...
-GET  /api/sources
-GET  /api/sources/{source_id}/file
-POST /api/dossiers/generate
-GET  /api/dossiers/{dossier_id}
+GET    /api/sites
+GET    /api/sites/{site_id}/context
+GET    /api/sites/{site_id}/geojson
+POST   /api/documents/upload
+POST   /api/documents/upload-batch
+GET    /api/documents/active?site_id=...
+PATCH  /api/documents/active/{source_id}?site_id=...
+DELETE /api/documents/active/{source_id}?site_id=...
+GET    /api/evidence?site_id=...&query=...
+GET    /api/sources
+GET    /api/sources/{source_id}/file
+POST   /api/dossiers/generate
+GET    /api/dossiers/{dossier_id}
 ```
+
+Document inventory in the UI should be driven by `GET /api/documents/active` and by the evidence used in the latest dossier. The backend remains the source of truth for detected source subtypes, parse status, source IDs, and evidence references.
 
 ### 6. Tests
 
@@ -582,6 +588,41 @@ The MVP does not provide:
 
 ---
 
+## Current MVP Limitations and Future Work
+
+The MVP is intentionally scoped to demonstrate a complete, local, reviewable mission-preparation workflow. The following limitations are known and should be treated as future work rather than hidden defects.
+
+### Product and mission coverage
+
+- The repository contains three curated Luxembourg demo sites. This is sufficient for a reproducible take-home demo, but it does not prove generalization across communes, building types, classified establishments, or mission families. A production version should expand the demo/evaluation set across more communes, sites, mission types, and document mixes.
+- The 12-category readiness taxonomy is currently fixed. Real technical-control, HVAC, environmental, asbestos, fire-safety, commissioning, survey, and expertise missions would need configurable mission-specific taxonomy packs rather than one universal category set.
+- The UI currently supports a mission-preparation workflow, but it does not yet include a full user feedback loop. Future versions should let experts mark checklist items as useful/not useful, correct document subtypes, comment on missing information, and feed that review back into rules, prompts, and evaluation cases.
+
+### Mock generation and user experience
+
+- Deterministic mock generation keeps the demo reproducible and cloud-independent, but its narrative is necessarily more generic than real LLM output. Future demo mode could use evidence-aware mock templates or curated sample outputs per case so that demo dossiers vary more visibly with the available evidence.
+- Frontend document inventory and follow-up workflows should continue to become more business-oriented: request status, notes, selected follow-up rows, and email-draft text should remain local/MVP features before becoming real case-management workflow.
+
+### Data engineering and document handling
+
+- Large files are not streamed end-to-end. Uploads are read with a size cap, and the planning download/parser pipeline remains suitable for small public demo PDFs. Production ingestion should stream large PDFs, handle partial downloads, and process large files asynchronously.
+- Processed planning chunks are stored as local JSON/JSONL cache files without an index. Retrieval is therefore O(n) over the loaded chunks, which is acceptable for the MVP but should be replaced by an indexed store, PostgreSQL/PostGIS, Delta tables, vector search, or another governed retrieval layer in production.
+- Pipeline scripts do not yet provide full handling for corrupt PDFs, password-protected PDFs, malformed documents, or image-heavy files beyond the current parser/OCR fallback boundaries. Future ingestion should classify parser failures, surface document-level processing status, and provide retry/OCR workflows.
+- Multilingual query expansion currently uses static terms. Future versions should update multilingual terminology from the actual corpus, expert feedback, and evaluation failures.
+
+### AI, retrieval, and evaluation quality
+
+- The evaluation layer checks deterministic behavior, source-type coverage, matrix status expectations, grounding rates, and semantic boundary cases. It does not yet compute full information-retrieval metrics such as precision, recall, MRR, or NDCG over a labeled evidence dataset. Future evaluation should add stable gold labels for retrieval quality.
+- Token estimation falls back to a lightweight character-based approximation when provider usage is unavailable. This can be inaccurate for multilingual text and non-OpenAI tokenizers. Production monitoring should use provider-reported usage where possible and model-specific tokenizers or calibrated estimates where not.
+- Prompt and model behavior are versioned in the cache signature, but there is no full prompt registry, prompt A/B testing, or model-comparison workflow. Future production work should add prompt/model version tracking, controlled experiments, and regression reports across versions.
+- Retrieval scores are captured for transparency but are not yet used to modulate readiness-rule decisions. Future rule packs could use retrieval score thresholds, evidence confidence, source authority, and reviewer feedback to decide whether a category should be `available`, `partial`, `missing`, or `unknown`.
+- The optional second-LLM semantic reviewer is report-only. It should remain non-blocking until validated against human expert labels.
+
+### Software craft and communication
+
+- Complex helper logic, such as missing-document context detection and rule matching, should receive more inline comments and docstrings before production hardening.
+- The FastAPI auto-docs are useful, but the project does not yet include detailed hand-written API examples for all routes, error responses, and authentication headers. Future documentation should add API examples, request/response samples, and common troubleshooting steps.
+
 ## What Would Be Kept in Production
 
 The following parts are production-relevant:
@@ -609,7 +650,11 @@ The following MVP components should be rebuilt or replaced in a production versi
 - use production OCR for scanned drawings, reports, and image-heavy PDFs;
 - use managed vector search and monitored retrieval pipelines;
 - expand the readiness rule engine with versioned policies, confidence thresholds, and reviewer-tunable rule packs;
-- expand the evaluation layer with broader semantic cases, human-reviewed labels, retrieval precision/recall, prompt/model regression tracking, real-LLM report-only runs, and user-facing usefulness checks;
+- expand the evaluation layer with broader semantic cases, human-reviewed labels, retrieval precision/recall, MRR/NDCG, prompt/model regression tracking, real-LLM report-only runs, and user-facing usefulness checks;
+- add a prompt/model registry for versioned prompts, A/B testing, model comparison, and rollback;
+- replace static multilingual query terms with corpus-driven terminology updates and expert-feedback loops;
+- connect retrieval confidence, source authority, and reviewer feedback to rule-engine decisions;
+- improve token monitoring with provider-reported usage, model-specific tokenizers where available, and cost observability;
 - integrate SECO historical inspection reports, defect observations, photos, measurements, drawings, and project metadata.
 
 ---
@@ -621,27 +666,32 @@ The following MVP components should be rebuilt or replaced in a production versi
 - Improve the UI/UX based on engineer feedback.
 - Observe whether users understand the readiness matrix, source type coverage, evidence panel, and limitations.
 - Collect feedback on which dossier sections are useful and which are missing.
-- Improve document upload experience and source-file inspection.
+- Add a lightweight user feedback loop for usefulness of checklist items, missing-document requests, and matrix categories.
+- Improve document upload experience, active document inventory, document subtype correction, and source-file inspection.
+- Expand demo coverage beyond the current three Luxembourg sites where useful for evaluation and storytelling.
+- Explore mission-specific taxonomy packs while keeping the current 12-category taxonomy stable for the MVP.
 - Strengthen existing features before adding many new ones.
 
 ### Month 2: Strengthen accuracy, stability, rule logic, and evaluation
 
 - Expand the deterministic evaluation set with more representative demo dossiers.
-- Expand retrieval evaluation: correct source, correct commune, correct page, correct evidence role, and labeled expected evidence where stable.
-- Expand generation evaluation: required evidence references, no forbidden claims, stable limitations, checklist relevance, and locked-matrix preservation.
+- Expand retrieval evaluation: correct source, correct commune, correct page, correct evidence role, labeled expected evidence where stable, and retrieval metrics such as precision, recall, MRR, and NDCG once gold labels exist.
+- Expand generation evaluation: required evidence references, no forbidden claims, stable limitations, checklist relevance, locked-matrix preservation, and evidence-aware variation beyond the generic deterministic mock narrative.
 - Expand rule-engine evaluation: whether each readiness-matrix status is consistent with the available evidence and missing-information rules.
 - Add more semantic regression cases for faithfulness, relevance, actionability, internal consistency, and absence-of-evidence-not-risk boundaries.
 - Add optional real-LLM evaluation runs as report-only outputs for manual review, not CI hard failures.
 - Expand the rule-based readiness-matrix engine with more document subtypes, confidence handling, and explicit `unknown` / `not_applicable` conditions.
-- Add regression tests for prompts, validators, source-type handling, rule-engine outputs, and sample dossier outputs.
-- Add better monitoring around failed parsing, failed generation, missing evidence, validation errors, and rule-engine conflicts.
+- Add regression tests for prompts, validators, source-type handling, rule-engine outputs, sample dossier outputs, and complex helper logic.
+- Add better monitoring around failed parsing, corrupt or password-protected PDFs, failed generation, missing evidence, validation errors, and rule-engine conflicts.
 - Expand document subtype classification and matrix consistency checks.
+- Add prompt/model versioning, prompt A/B testing support, and clearer API examples beyond FastAPI auto-docs.
+- Improve token estimation by preferring provider-reported usage and adding model-specific tokenization or calibrated multilingual estimates where appropriate.
 
 ### Month 3: Plan production scale and internal data integration
 
 - Estimate expected user volume, document volume, and dossier generation frequency.
-- Decide whether local processing remains sufficient or whether distributed processing is needed.
-- Evaluate production storage and processing options such as managed lakehouse tables, PostgreSQL/PostGIS, object storage, and scheduled jobs.
+- Decide whether local processing remains sufficient or whether distributed processing, asynchronous queues, or event-based ingestion are needed.
+- Evaluate production storage and processing options such as managed lakehouse tables, PostgreSQL/PostGIS, object storage, indexed search, vector search, and scheduled jobs.
 - Plan deployment resources for backend, frontend, document processing, OCR, retrieval, and LLM serving.
 - Design the first SECO internal-data integration: historical inspection reports, defect observations, photos, measurements, and project metadata.
 - Prototype similar-case retrieval and experience-enhanced mission checklist generation from governed internal data.

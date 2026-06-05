@@ -21,6 +21,8 @@ def test_cors_allows_configured_origin_methods_and_headers():
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert "POST" in response.headers["access-control-allow-methods"]
     assert "GET" in response.headers["access-control-allow-methods"]
+    assert "PATCH" in response.headers["access-control-allow-methods"]
+    assert "DELETE" in response.headers["access-control-allow-methods"]
     assert "X-API-Key" in response.headers["access-control-allow-headers"]
     assert "access-control-allow-credentials" not in response.headers
 
@@ -33,7 +35,7 @@ def test_cors_rejects_unconfigured_origin():
 
 
 def test_cors_rejects_unconfigured_method():
-    response = preflight(origin="http://localhost:5173", method="DELETE")
+    response = preflight(origin="http://localhost:5173", method="PUT")
 
     assert response.status_code == 400
 

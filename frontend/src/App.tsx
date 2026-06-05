@@ -12,6 +12,7 @@ import {
   getSites,
   uploadDocuments
 } from "./api/client";
+import { ActiveDocumentsPanel } from "./components/ActiveDocumentsPanel";
 import type { DemoSite, Dossier, EvidenceObject, GeoJsonFeature, SiteContext, SiteGeoJsonResponse, SourceRecordPublic } from "./types/dossier";
 
 type ViewKey = "matrix" | "documents" | "followup" | "system";
@@ -108,12 +109,6 @@ const statusLabels: Record<string, string> = {
   not_applicable: "Not applicable"
 };
 
-const priorityLabels: Record<string, string> = {
-  high: "High",
-  medium: "Medium",
-  low: "Low"
-};
-
 const uploadSubtypeOptions = [
   { value: "", label: "Auto classify" },
   { value: "condition_observation", label: "Condition observation" },
@@ -158,10 +153,6 @@ function statusLabel(value: string) {
   return statusLabels[value] ?? labelize(value);
 }
 
-function priorityLabel(value: string) {
-  return priorityLabels[value] ?? value;
-}
-
 function criticalityLabel(value?: string | null) {
   if (value === "critical") return "Critical";
   if (value === "important") return "Important";
@@ -171,13 +162,6 @@ function criticalityLabel(value?: string | null) {
 
 function missionTypeLabel(value: MissionTypeKey) {
   return missionTypeOptions.find((option) => option.value === value)?.label ?? labelize(value);
-}
-
-function generationModeLabel(value?: string | null) {
-  if (!value) return "Unknown";
-  if (value === "mock") return "Demo";
-  if (value === "real_llm") return "Real LLM";
-  return labelize(value);
 }
 
 function evidenceTypeLabel(type: string) {
@@ -217,14 +201,6 @@ function evidenceFileName(evidence: EvidenceObject) {
   return uploadedMatch?.[1] ?? rawName;
 }
 
-function sourceRecordFileName(source: SourceRecordPublic) {
-  const original = source.metadata.original_filename;
-  if (typeof original === "string" && original.trim()) return original;
-  const rawName = source.display_name.split(/[\\/]/).pop() ?? source.display_name;
-  const uploadedMatch = rawName.match(/^.+?_upload_[a-f0-9]{12}_(.+)$/i);
-  return uploadedMatch?.[1] ?? rawName;
-}
-
 function evidenceLocatorLabel(evidence: EvidenceObject) {
   const page = evidence.page ?? evidence.locator?.page;
   const lineStart = evidence.locator?.line_start ?? metadataNumber(evidence.metadata.line_start);
@@ -251,22 +227,6 @@ function sourceTypeLabel(type: string) {
     derived: "Derived missing information"
   };
   return labels[type] ?? evidenceTypeLabel(type);
-}
-
-function sourceTypeCoverage(evidence: EvidenceObject[]) {
-  const counts = new Map<string, number>();
-  for (const item of evidence) {
-    const key = item.source_type ?? item.evidence_type;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return Array.from(counts.entries())
-    .map(([type, count]) => ({ type, count }))
-    .sort((left, right) => right.count - left.count || sourceTypeLabel(left.type).localeCompare(sourceTypeLabel(right.type)));
-}
-
-function scoredCoverageCategories(dossier: Dossier) {
-  const coverage = dossier.coverage_score;
-  return coverage.available + coverage.partial + coverage.missing + coverage.unknown;
 }
 
 function criticalMissingItems(dossier: Dossier) {
@@ -339,7 +299,6 @@ function App() {
   const [mapDrawingEnabled, setMapDrawingEnabled] = useState(false);
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>("matrix");
-  const [highlightedEvidenceId, setHighlightedEvidenceId] = useState<string | null>(null);
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -383,7 +342,6 @@ function App() {
     setActiveDocuments([]);
     setMapDrawingEnabled(false);
     setActiveView("matrix");
-    setHighlightedEvidenceId(null);
     setError(null);
     void Promise.all([getSiteContext(selectedSiteId), getSiteGeoJson(selectedSiteId), getActiveDocuments(selectedSiteId)])
       .then(([context, geojson, documents]) => {
@@ -448,7 +406,6 @@ function App() {
       });
       setDossier(generated);
       setActiveView("matrix");
-      setHighlightedEvidenceId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Dossier generation failed");
     } finally {
@@ -459,7 +416,6 @@ function App() {
   async function handleEvidenceRefClick(evidenceId: string) {
     const evidence = evidenceById.get(evidenceId);
     const href = evidenceSourceHref(evidence);
-    setHighlightedEvidenceId(evidenceId);
     window.setTimeout(() => {
       document.getElementById(`evidence-${evidenceId}`)?.scrollIntoView({
         behavior: prefersReducedMotion() ? "auto" : "smooth",
@@ -507,6 +463,7 @@ function App() {
 
   return (
     <main className="app-shell">
+      <a className="skip-link" href="#main-content">Skip to dossier workspace</a>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">BM</div>
@@ -647,7 +604,7 @@ function App() {
         {uploadSuccess ? <p className="quiet success-text">{uploadSuccess}</p> : null}
       </aside>
 
-      <section className="workspace">
+      <section className="workspace" id="main-content">
         {error ? (
           <div className="banner">
             <AlertTriangle size={18} />
@@ -655,6 +612,7 @@ function App() {
           </div>
         ) : null}
 
+        <div className="case-prep-grid">
           <SiteContextBlock
             siteContext={siteContext}
             siteGeoJson={siteGeoJson}
@@ -668,12 +626,14 @@ function App() {
 
           <ActiveDocumentsPanel
             documents={activeDocuments}
+            documentTypeOptions={activeDocumentTypeOptions}
             onRemove={handleRemoveActiveDocument}
             onTypeChange={handleUpdateActiveDocumentType}
           />
+        </div>
 
         {dossier ? (
-          <>
+          <div className="dossier-stack">
             <CaseHeader
               selectedSite={selectedSite}
               siteContext={siteContext}
@@ -684,24 +644,26 @@ function App() {
               <KpiCards dossier={dossier} />
             </section>
 
-            <nav className="tabs" aria-label="Dossier views">
-              {views.map((view) => (
-                <button
-                  key={view.key}
-                  className={activeView === view.key ? "active" : ""}
-                  type="button"
-                  aria-current={activeView === view.key ? "page" : undefined}
-                  onClick={() => setActiveView(view.key)}
-                >
-                  {view.label}
-                </button>
-              ))}
-            </nav>
+            <div className="dossier-nav">
+              <nav className="tabs" aria-label="Dossier views">
+                {views.map((view) => (
+                  <button
+                    key={view.key}
+                    className={activeView === view.key ? "active" : ""}
+                    type="button"
+                    aria-current={activeView === view.key ? "page" : undefined}
+                    onClick={() => setActiveView(view.key)}
+                  >
+                    {view.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
 
             <section className="view-panel">
               {renderView(activeView, dossier, evidenceById, handleEvidenceRefClick, missionType)}
             </section>
-          </>
+          </div>
         ) : (
           <CaseSetupIntro missionType={missionType} selectedSite={selectedSite} />
         )}
@@ -787,63 +749,6 @@ function CaseHeader({
   );
 }
 
-function ActiveDocumentsPanel({
-  documents,
-  onRemove,
-  onTypeChange
-}: {
-  documents: SourceRecordPublic[];
-  onRemove: (sourceId: string) => void;
-  onTypeChange: (sourceId: string, sourceSubtype: string) => void;
-}) {
-  const uploaded = documents.filter((document) => document.source_type === "uploaded_document" || document.source_type === "uploaded_image");
-  return (
-    <section className="panel active-documents-panel">
-      <div className="view-heading">
-        <span className="eyebrow">Active case documents</span>
-        <h2>Documents queued for the next generation</h2>
-        <p>New uploads are added to this queue. Remove any document you do not want included before generating.</p>
-      </div>
-      {uploaded.length ? (
-        <div className="active-document-list">
-          {uploaded.map((document) => (
-            <div className="active-document-row" key={document.source_id}>
-              <div className="active-document-copy">
-                <strong>{sourceRecordFileName(document)}</strong>
-                <small>{document.status === "available" ? "Uploaded locally" : labelize(document.status)}</small>
-              </div>
-              <label className="active-document-type">
-                <span>Case document type</span>
-                <select
-                  value={document.source_subtype ?? "unknown_upload"}
-                  onChange={(event) => onTypeChange(document.source_id, event.target.value)}
-                >
-                  {activeDocumentTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                className="icon-button remove-document-button"
-                type="button"
-                title="Remove from next generation"
-                aria-label={`Remove ${sourceRecordFileName(document)} from next generation`}
-                onClick={() => onRemove(document.source_id)}
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="empty">No active uploaded documents for this case yet.</p>
-      )}
-    </section>
-  );
-}
-
 function SiteContextBlock({
   siteContext,
   siteGeoJson,
@@ -874,7 +779,10 @@ function SiteContextBlock({
 
   return (
     <section className="panel site-context-panel">
-      <h2>Case setup</h2>
+      <div className="panel-heading">
+        <span className="eyebrow">Selected mission case</span>
+        <h2>Case setup</h2>
+      </div>
       <div className="site-context-layout">
         <dl className="facts">
           <dt>Address</dt>
@@ -1279,64 +1187,6 @@ function ReadinessGroup({
   );
 }
 
-function MissionChecklist({
-  dossier,
-  evidenceById,
-  onEvidenceRefClick
-}: {
-  dossier: Dossier;
-  evidenceById: Map<string, EvidenceObject>;
-  onEvidenceRefClick: (evidenceId: string) => void;
-}) {
-  const grouped = checklistGroups(dossier);
-  return (
-    <div className="checklist-groups">
-      {grouped.map((group) => (
-        <List key={group.title} title={group.title}>
-          {group.items.map((item) => (
-            <article key={item.item_id} className="item">
-              <span className={`priority ${item.priority}`}>Priority: {priorityLabel(item.priority)}</span>
-              <h3>{item.task}</h3>
-              <p>{item.reason}</p>
-              <EvidenceRefs refs={item.evidence_refs} evidenceById={evidenceById} onClick={onEvidenceRefClick} />
-            </article>
-          ))}
-        </List>
-      ))}
-    </div>
-  );
-}
-
-function checklistGroups(dossier: Dossier) {
-  const groups = new Map<string, Dossier["inspection_checklist"]>([
-    ["Documents to request", []],
-    ["Controls to perform", []],
-    ["Measurements / scans to plan", []],
-    ["Items requiring expert validation", []]
-  ]);
-  for (const item of dossier.inspection_checklist) {
-    const group = checklistGroupTitle(item);
-    groups.set(group, [...(groups.get(group) ?? []), item]);
-  }
-  return Array.from(groups.entries())
-    .filter(([, items]) => items.length)
-    .map(([title, items]) => ({ title, items }));
-}
-
-function checklistGroupTitle(item: Dossier["inspection_checklist"][number]) {
-  const text = `${item.task} ${item.reason}`.toLowerCase();
-  if (/(request|collect|obtain|document|certificate|record|drawing|inventory|authorization|dossier)/.test(text)) {
-    return "Documents to request";
-  }
-  if (/(measure|scan|survey|sampling|sample|test|monitor|meter|laser|3d)/.test(text)) {
-    return "Measurements / scans to plan";
-  }
-  if (/(expert|validate|engineer|specialist|laboratory|fire|structural|environmental|asbestos|pollutant)/.test(text)) {
-    return "Items requiring expert validation";
-  }
-  return "Controls to perform";
-}
-
 function FollowUpTab({
   dossier,
   missionType,
@@ -1538,43 +1388,6 @@ function buildEmailDraft(dossier: Dossier, missionType: MissionTypeKey, rows: Fo
     "",
     "Best regards,"
   ].join("\n");
-}
-
-function GlossaryTab() {
-  const terms = [
-    ["High preparation coverage", "Most required case-file information is present and no critical readiness category is missing. This is not an approval or compliance status."],
-    ["Partial preparation coverage", "Some useful evidence is available, but the case still needs missing documents, clarification, or expert checks before the mission is well prepared."],
-    ["Insufficient preparation coverage", "The case file lacks enough evidence for reliable mission preparation, or one or more critical categories are missing."],
-    ["Found", "The required information was identified in one or more case evidence sources."],
-    ["Partial", "Some relevant information was found, but it is incomplete, indirect, or still needs expert validation."],
-    ["Missing", "The required information was not found in the current case evidence."],
-    ["Not applicable", "The category does not apply to the selected mission context and is excluded from the score."],
-    ["Critical", "Information that can block high preparation coverage if missing."],
-    ["Important", "Information that materially improves mission preparation but may not block every preliminary action."],
-    ["Optional", "Helpful supporting information that does not normally block the mission preparation workflow."],
-    ["Official public source", "Planning or public documents from official sources. These still need mission-specific interpretation."],
-    ["User-provided source", "Documents uploaded locally by the user. Useful for preparation, but not independently verified by the app."],
-    ["System-derived evidence", "A generated record that explains missing information for traceability. It is not an external document."],
-    ["Readiness score", "A case-file evidence coverage indicator based on the validated readiness matrix."],
-    ["Critical warning", "If critical information is missing, the mission cannot be shown as high preparation coverage even if the numeric score is otherwise strong."]
-  ];
-  return (
-    <div className="glossary-view">
-      <div className="view-heading">
-        <span className="eyebrow">Glossary</span>
-        <h2>Business rules and labels</h2>
-        <p>The readiness score is not a safety, structural, legal, environmental, authorization, or compliance certification.</p>
-      </div>
-      <div className="glossary-grid">
-        {terms.map(([term, definition]) => (
-          <article className="item" key={term}>
-            <h3>{term}</h3>
-            <p>{definition}</p>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 type DocumentInventoryRow = {
@@ -1812,96 +1625,6 @@ function semanticWarningCount(review: NonNullable<Dossier["semantic_review"]>) {
   );
 }
 
-function List({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="list-section">
-      <h2>{title}</h2>
-      <div className="list">{children}</div>
-    </section>
-  );
-}
-
-function SourceTypeCoverage({ evidence }: { evidence: EvidenceObject[] }) {
-  const items = sourceTypeCoverage(evidence);
-  if (!items.length) return null;
-  return (
-    <div className="source-coverage">
-      <span>Source Type Coverage</span>
-      <div>
-        {items.map((item) => (
-          <p key={item.type}>
-            <small>{sourceTypeLabel(item.type)}</small>
-            <strong>{item.count}</strong>
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function GenerationUsage({ usage }: { usage: Dossier["usage"] }) {
-  if (!usage) {
-    return null;
-  }
-  const tokenTotal = usage.total_tokens_reported ?? usage.total_tokens_estimated;
-  const tokenLabel = usage.total_tokens_reported === null ? "estimated" : "reported";
-  return (
-    <div className="source-coverage">
-      <span>Generation</span>
-      <div>
-        <strong>{usage.generation_mode}</strong>
-        <p>External LLM: {usage.external_llm_called ? "yes" : "no"}</p>
-      </div>
-      <p>
-        {usage.llm_provider}
-        {usage.llm_model ? ` / ${usage.llm_model}` : ""}
-      </p>
-      <p>
-        Tokens: {tokenTotal.toLocaleString()} {tokenLabel}
-      </p>
-    </div>
-  );
-}
-
-function SemanticReviewSummary({
-  review,
-  usage,
-}: {
-  review: Dossier["semantic_review"];
-  usage: Dossier["semantic_review_usage"];
-}) {
-  if (!review) {
-    return null;
-  }
-  const warningCount =
-    review.unsupported_claims.length +
-    review.forbidden_claim_warnings.length +
-    review.grounding_warnings.length +
-    (review.overclaiming_detected ? 1 : 0) +
-    (review.absence_to_risk_violation ? 1 : 0);
-  const tokenTotal = usage ? usage.total_tokens_reported ?? usage.total_tokens_estimated : null;
-  const tokenLabel = usage?.total_tokens_reported === null ? "estimated" : "reported";
-  return (
-    <div className="source-coverage">
-      <span>Semantic Review</span>
-      <div>
-        <strong>{review.status}</strong>
-        <p>External LLM: {usage?.external_llm_called ? "yes" : "no"}</p>
-      </div>
-      <p>
-        {review.reviewer_provider ?? "disabled"}
-        {review.reviewer_model ? ` / ${review.reviewer_model}` : ""}
-      </p>
-      <p>Warnings: {warningCount}</p>
-      {tokenTotal !== null ? (
-        <p>
-          Tokens: {tokenTotal.toLocaleString()} {tokenLabel}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function EvidenceRefs({
   refs,
   evidenceById,
@@ -1960,129 +1683,6 @@ function uniqueDisplayRefs(refs: string[], evidenceById: Map<string, EvidenceObj
     unique.push(ref);
   }
   return unique;
-}
-
-function EvidenceReview({
-  evidence,
-  highlightedEvidenceId
-}: {
-  evidence: EvidenceObject[];
-  highlightedEvidenceId: string | null;
-}) {
-  return (
-    <div className="evidence-review">
-      <SourceCoveragePanel evidence={evidence} />
-      <EvidencePanel evidence={evidence} highlightedEvidenceId={highlightedEvidenceId} />
-    </div>
-  );
-}
-
-function SourceCoveragePanel({ evidence }: { evidence: EvidenceObject[] }) {
-  const items = sourceTypeCoverage(evidence);
-  const userProvided = evidence.filter((item) => item.source_type === "uploaded_document" || item.source_type === "uploaded_image").length;
-  const official = evidence.filter((item) => item.source_type === "official_planning_pdf").length;
-  const derived = evidence.filter((item) => item.source_type === "derived").length;
-  return (
-    <section className="source-coverage-panel">
-      <div className="source-coverage-intro">
-        <span className="eyebrow">Source coverage</span>
-        <h2>Evidence available for this mission case</h2>
-        <p>
-          This panel shows which kinds of evidence support the dossier. It is not a completeness, compliance, safety,
-          or authorization conclusion.
-        </p>
-      </div>
-      <div className="source-coverage-metrics">
-        <SummaryCard label="User-provided" value={String(userProvided)} detail="Uploaded case evidence" />
-        <SummaryCard label="Official public" value={String(official)} detail="Planning and public sources" />
-        <SummaryCard label="System-derived" value={String(derived)} detail="Missing-information records" />
-      </div>
-      {items.length ? (
-        <div className="source-coverage-rows">
-          {items.map((item) => (
-            <div className="source-coverage-row" key={item.type}>
-              <span>{sourceTypeLabel(item.type)}</span>
-              <strong>{item.count}</strong>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function EvidencePanel({
-  evidence,
-  highlightedEvidenceId
-}: {
-  evidence: EvidenceObject[];
-  highlightedEvidenceId: string | null;
-}) {
-  const rows = displayEvidenceRows(evidence);
-  return (
-    <div className="evidence-list">
-      {rows.map(({ item, evidenceIds, duplicateCount }) => (
-        <article
-          key={evidenceIds.join("|")}
-          id={`evidence-${item.evidence_id}`}
-          className={`item evidence-item ${highlightedEvidenceId && evidenceIds.includes(highlightedEvidenceId) ? "highlighted" : ""}`}
-        >
-          <div className="evidence-meta">
-            <strong>{evidenceFileName(item)}</strong>
-            <span>
-              {sourceTypeLabel(item.source_type ?? item.evidence_type)}
-              {item.source_subtype ? ` / ${labelize(item.source_subtype)}` : ""}
-              {evidenceLocatorLabel(item) ? ` / ${evidenceLocatorLabel(item)}` : ""}
-            </span>
-          </div>
-          <span className={`evidence-type ${item.evidence_type}`}>{evidenceTypeLabel(item.evidence_type)}</span>
-          {duplicateCount > 1 ? <span className="evidence-duplicate-note">{duplicateCount} matching evidence records collapsed</span> : null}
-          <p>{item.content}</p>
-          {evidenceSourceHref(item) ? (
-            <a className="source-link" href={evidenceSourceHref(item) ?? undefined} target="_blank" rel="noreferrer">
-              Open source{item.page ? ` at page ${item.page}` : ""}
-            </a>
-          ) : null}
-          <details className="advanced-details">
-            <summary>Advanced evidence details</summary>
-            <dl className="facts compact">
-              <dt>Evidence IDs</dt>
-              <dd>{evidenceIds.join(", ")}</dd>
-              <dt>Source ID</dt>
-              <dd>{item.source_id ?? "Not reported"}</dd>
-              <dt>Authority</dt>
-              <dd>{authorityLabel(item)}</dd>
-              <dt>Supports</dt>
-              <dd>{item.supports.length ? item.supports.map(labelize).join(", ") : "General context"}</dd>
-            </dl>
-          </details>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function displayEvidenceRows(evidence: EvidenceObject[]) {
-  const grouped = new Map<string, EvidenceObject[]>();
-  for (const item of evidence) {
-    const key = evidenceDisplayKey(item);
-    grouped.set(key, [...(grouped.get(key) ?? []), item]);
-  }
-  return Array.from(grouped.values()).map((items) => ({
-    item: items[0],
-    evidenceIds: items.map((item) => item.evidence_id),
-    duplicateCount: items.length
-  }));
-}
-
-function evidenceDisplayKey(evidence: EvidenceObject) {
-  return [
-    evidence.source_type ?? evidence.evidence_type,
-    evidenceFileName(evidence),
-    evidence.source_subtype ?? "",
-    evidence.page ?? "",
-    evidence.content.trim().replace(/\s+/g, " ")
-  ].join("|");
 }
 
 export default App;

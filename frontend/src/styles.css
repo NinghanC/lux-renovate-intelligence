@@ -5,6 +5,13 @@
   --line: oklch(88% 0.012 205);
   --surface: oklch(99% 0.004 205);
   --surface-soft: oklch(97.5% 0.006 205);
+  --surface-panel: oklch(98.8% 0.005 195);
+  --page: oklch(96.8% 0.007 198);
+  --header-surface: oklch(98.9% 0.005 198);
+  --draft-line: oklch(86% 0.012 200);
+  --blueprint: oklch(46% 0.09 218);
+  --blueprint-hover: oklch(40% 0.095 218);
+  --blueprint-soft: oklch(95.5% 0.021 218);
   --accent: oklch(45% 0.105 190);
   --accent-soft: oklch(96% 0.025 190);
   --warning: oklch(52% 0.13 70);
@@ -17,7 +24,7 @@
   --shadow-small: 0 2px 10px oklch(28% 0.02 220 / 0.12);
   --shadow-large: 0 22px 60px oklch(28% 0.02 220 / 0.24);
   color: var(--text);
-  background: oklch(96.5% 0.006 205);
+  background: var(--page);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
@@ -35,6 +42,9 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   overflow-y: scroll;
+  background:
+    linear-gradient(90deg, var(--header-surface) 0, var(--header-surface) min(340px, 24vw), transparent min(340px, 24vw)),
+    var(--page);
 }
 
 button,
@@ -66,40 +76,68 @@ input[type="checkbox"]:focus-visible,
 .file-select-button:focus-within,
 .source-link:focus-visible,
 .advanced-details summary:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--blueprint);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px var(--focus-ring);
 }
 
 .app-shell {
   display: grid;
-  grid-template-columns: clamp(250px, 20vw, 300px) minmax(0, 1fr);
+  grid-template-columns: clamp(292px, 23vw, 340px) minmax(0, 1fr);
+  align-items: start;
   min-height: 100vh;
 }
 
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1100;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 800;
+  transform: translateY(-150%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .sidebar {
+  position: sticky;
+  top: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 24px;
-  border-right: 1px solid #dbe1e5;
-  background: var(--surface);
+  gap: 16px;
+  min-height: 100vh;
+  max-height: 100vh;
+  overflow: auto;
+  padding: 26px 22px;
+  border-right: 1px solid var(--draft-line);
+  border-bottom: 0;
+  background: var(--header-surface);
+  box-shadow: none;
 }
 
 .brand {
   display: flex;
   gap: 12px;
   align-items: center;
+  padding-bottom: 6px;
 }
 
 .brand-mark {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 8px;
-  background: var(--accent);
-  color: oklch(98% 0.006 190);
+  border: 1px solid var(--blueprint);
+  background: var(--blueprint-soft);
+  color: var(--blueprint);
   font-weight: 800;
 }
 
@@ -139,7 +177,7 @@ small,
 
 .control-group {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .control-group label {
@@ -163,7 +201,7 @@ textarea {
   min-height: 84px;
   resize: vertical;
   padding: 10px;
-  border: 1px solid #cbd5da;
+  border: 1px solid var(--draft-line);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text);
@@ -188,11 +226,14 @@ textarea::placeholder {
 .site-card {
   display: grid;
   gap: 6px;
-  padding: 12px;
+  padding: 12px 13px;
+  border-color: var(--draft-line);
+  background: var(--surface-panel);
 }
 
 .actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   align-items: center;
 }
@@ -233,9 +274,9 @@ textarea::placeholder {
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid #dbe1e5;
+  border: 1px solid var(--draft-line);
   border-radius: 8px;
-  background: var(--surface-soft);
+  background: var(--surface);
 }
 
 .upload-panel label,
@@ -255,9 +296,9 @@ textarea::placeholder {
   gap: 8px;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 42px;
   padding: 0 12px;
-  border: 1px solid #cbd5da;
+  border: 1px solid var(--draft-line);
   border-radius: 8px;
   background: var(--surface);
   color: #3d4a50;
@@ -275,9 +316,9 @@ textarea::placeholder {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #dbe1e5;
+  border: 1px solid var(--draft-line);
   border-radius: 8px;
-  background: var(--surface-soft);
+  background: var(--surface);
 }
 
 .field {
@@ -322,10 +363,11 @@ textarea::placeholder {
 
 .primary-button {
   gap: 8px;
-  min-width: 132px;
+  width: 100%;
+  min-width: 0;
   padding: 0 16px;
   border: 0;
-  background: var(--accent);
+  background: var(--blueprint);
   color: var(--surface);
   font-weight: 750;
 }
@@ -337,7 +379,7 @@ textarea::placeholder {
   justify-self: start;
   min-height: 38px;
   padding: 0 12px;
-  border: 1px solid #cbd5da;
+  border: 1px solid var(--draft-line);
   border-radius: 8px;
   background: var(--surface);
   color: #3d4a50;
@@ -363,9 +405,8 @@ textarea::placeholder {
   color: var(--accent);
 }
 
-.primary-button:hover:not(:disabled),
-.tabs button.active:hover {
-  background: var(--accent-hover);
+.primary-button:hover:not(:disabled) {
+  background: var(--blueprint-hover);
 }
 
 .icon-button:active:not(:disabled),
@@ -383,12 +424,26 @@ textarea::placeholder {
 
 .workspace {
   display: grid;
-  gap: 18px;
+  gap: 20px;
   align-content: start;
   min-width: 0;
-  width: min(100%, 1320px);
+  width: min(100%, 1440px);
   margin: 0 auto;
-  padding: clamp(16px, 2vw, 24px) clamp(18px, 2vw, 28px) 40px;
+  padding: 24px clamp(20px, 2.4vw, 34px) 44px;
+}
+
+.case-prep-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+  gap: 18px;
+  align-items: start;
+  min-width: 0;
+}
+
+.dossier-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
 }
 
 .banner {
@@ -414,6 +469,16 @@ textarea::placeholder {
   margin-bottom: 12px;
 }
 
+.panel-heading {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.panel-heading h2 {
+  margin: 0;
+}
+
 .panel-subtitle {
   font-size: 13px;
 }
@@ -424,27 +489,32 @@ textarea::placeholder {
 
 .site-context-layout {
   display: grid;
-  grid-template-columns: minmax(340px, 1fr) minmax(340px, 0.74fr);
-  gap: 22px;
-  align-items: center;
+  grid-template-columns: minmax(250px, 0.76fr) minmax(320px, 1fr);
+  gap: 18px;
+  align-items: stretch;
 }
 
 .facts {
   display: grid;
-  grid-template-columns: 118px minmax(220px, 1fr);
-  gap: 9px 14px;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 8px 14px;
   margin: 0;
+  align-content: start;
 }
 
 .facts dt {
   color: #64727a;
+  font-size: 12px;
+  font-weight: 750;
 }
 
 .facts dd {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-  font-weight: 650;
+  color: #334247;
+  font-size: 13px;
+  font-weight: 720;
 }
 
 .site-map-stack {
@@ -456,17 +526,22 @@ textarea::placeholder {
 .site-map {
   position: relative;
   width: 100%;
-  max-width: 520px;
-  aspect-ratio: 16 / 10;
-  justify-self: end;
+  max-width: none;
+  aspect-ratio: 16 / 9;
+  justify-self: stretch;
   overflow: hidden;
-  border: 1px solid #dbe1e5;
+  border: 1px solid var(--draft-line);
   border-radius: 8px;
-  background: #edf1f3;
+  background:
+    linear-gradient(var(--draft-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--draft-line) 1px, transparent 1px),
+    oklch(96.5% 0.009 205);
+  background-size: 24px 24px, 24px 24px, auto;
 }
 
 .geojson-summary {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 13px;
   color: #56636c;
@@ -475,8 +550,13 @@ textarea::placeholder {
 .geojson-summary div {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #dbe1e5;
+  border-radius: 999px;
+  background: var(--surface);
 }
 
 .geojson-summary span {
@@ -613,7 +693,9 @@ textarea::placeholder {
   gap: 18px;
   align-items: start;
   min-width: 0;
-  padding: 20px;
+  padding: 22px;
+  border-color: var(--draft-line);
+  background: var(--surface);
 }
 
 .dossier-hero h2 {
@@ -639,10 +721,10 @@ textarea::placeholder {
 
 .summary-caveat {
   padding: 10px 12px;
-  border: 1px solid #dbe1e5;
+  border: 1px solid oklch(83% 0.034 218);
   border-radius: 8px;
-  background: var(--surface-soft);
-  color: #56636c;
+  background: var(--blueprint-soft);
+  color: var(--blueprint);
   font-size: 13px;
 }
 
@@ -725,23 +807,24 @@ textarea::placeholder {
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
 .tabs button {
-  min-width: 92px;
-  padding: 0 14px;
-  border: 1px solid #cbd5da;
-  background: var(--surface);
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  background: transparent;
   color: #3d4a50;
   font-weight: 750;
 }
 
 .tabs button.active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--surface);
+  border-color: var(--blueprint);
+  background: var(--blueprint-soft);
+  color: var(--blueprint);
 }
 
 .tabs button:focus-visible {
@@ -756,12 +839,25 @@ textarea::placeholder {
   padding: 18px;
 }
 
+.dossier-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 8px;
+  border: 1px solid var(--draft-line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px oklch(35% 0.018 220 / 0.08);
+}
+
 .case-header {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(360px, 0.95fr);
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 0.74fr);
   gap: 18px;
   min-width: 0;
-  padding: 18px;
+  padding: 18px 20px;
+  border-color: var(--draft-line);
+  background: var(--surface);
 }
 
 .case-header-main {
@@ -786,7 +882,7 @@ textarea::placeholder {
 
 .case-header-facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin: 0;
 }
@@ -819,6 +915,8 @@ textarea::placeholder {
 
 .case-intro {
   gap: 18px;
+  padding: 22px;
+  background: var(--surface);
 }
 
 .case-intro-grid,
@@ -854,6 +952,8 @@ textarea::placeholder {
 .active-documents-panel {
   display: grid;
   gap: 12px;
+  align-self: start;
+  min-height: 100%;
 }
 
 .active-document-list {
@@ -863,7 +963,7 @@ textarea::placeholder {
 
 .active-document-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(172px, 220px) auto;
   gap: 10px;
   align-items: center;
   min-width: 0;
@@ -947,12 +1047,12 @@ textarea::placeholder {
 }
 
 .summary-cards {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 10px;
   min-width: 0;
 }
@@ -970,7 +1070,7 @@ textarea::placeholder {
   padding: 14px;
   border: 1px solid #dbe1e5;
   border-radius: 8px;
-  background: var(--surface-soft);
+  background: var(--surface-panel);
 }
 
 .preparation-status-card span {
@@ -1002,7 +1102,7 @@ textarea::placeholder {
 
 .summary-card strong {
   color: var(--accent);
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -1016,7 +1116,7 @@ textarea::placeholder {
   min-width: 0;
   border: 1px solid #e2e8ec;
   border-radius: 8px;
-  background: var(--surface-soft);
+  background: var(--surface);
 }
 
 .readiness-group-header,
@@ -1042,7 +1142,7 @@ textarea::placeholder {
 .readiness-group-header span {
   padding: 4px 8px;
   border-radius: 999px;
-  background: var(--surface-soft);
+  background: var(--surface-panel);
   color: #64727a;
   font-size: 12px;
   font-weight: 750;
@@ -1060,7 +1160,7 @@ textarea::placeholder {
   padding: 14px;
   border: 1px solid #e2e8ec;
   border-radius: 8px;
-  background: var(--surface-soft);
+  background: var(--surface);
 }
 
 .source-coverage-rows {
@@ -1478,6 +1578,7 @@ textarea::placeholder {
 
 @media (max-width: 1050px) {
   .app-shell,
+  .case-prep-grid,
   .dossier-hero,
   .case-header,
   .site-context-layout,
@@ -1493,8 +1594,11 @@ textarea::placeholder {
   }
 
   .sidebar {
+    position: static;
+    min-height: 0;
+    max-height: none;
     border-right: 0;
-    border-bottom: 1px solid #dbe1e5;
+    border-bottom: 1px solid var(--draft-line);
   }
 
   .hero-stat {
@@ -1538,6 +1642,10 @@ textarea::placeholder {
 }
 
 @media (max-width: 900px) {
+  body {
+    background: var(--page);
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
   }
@@ -1545,18 +1653,31 @@ textarea::placeholder {
   .sidebar {
     position: static;
     border-right: 0;
-    border-bottom: 1px solid #dbe1e5;
+    border-bottom: 1px solid var(--draft-line);
   }
 }
 
 @media (max-width: 720px) {
   .workspace {
-    padding: 18px;
+    padding: 16px;
+  }
+
+  .case-prep-grid,
+  .dossier-stack {
+    gap: 14px;
+  }
+
+  .dossier-hero,
+  .case-header,
+  .case-intro,
+  .panel,
+  .view-panel {
+    padding: 14px;
   }
 
   .tabs {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .tabs button {
@@ -1588,7 +1709,7 @@ textarea::placeholder {
   }
 
   .active-document-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) 44px;
   }
 
   .active-document-type {
@@ -1601,6 +1722,24 @@ textarea::placeholder {
 
   .facts dd {
     margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 460px) {
+  .sidebar {
+    padding: 18px 16px;
+  }
+
+  .brand {
+    align-items: flex-start;
+  }
+
+  .actions {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .tabs {
+    grid-template-columns: 1fr;
   }
 }
 

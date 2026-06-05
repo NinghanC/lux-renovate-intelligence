@@ -14,7 +14,7 @@ from app.models.evaluation import (
     EvaluationRunReport,
     SemanticEvaluationCase,
 )
-from app.models.schemas import Dossier, EvidenceObject
+from app.models.schemas import EvidenceObject
 from app.services.context_evidence import build_context_evidence
 from app.services.document_retriever import DocumentRetriever
 from app.services.dossier_generator import DossierGenerator
