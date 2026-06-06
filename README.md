@@ -6,6 +6,8 @@ Rather than functioning as a generic RAG chatbot, the platform supports a struct
 
 The workflow is case-centric. Users select a Luxembourg demo mission case, optionally upload case documents, and generate a mission readiness dossier. The dossier consolidates available evidence, identifies missing mission-critical documents, highlights items requiring expert validation, recommends controls, inspections, measurements, scans, or document requests, and provides traceable references for every finding.
 
+Demo video: [Building Mission Readiness Intelligence walkthrough](https://youtu.be/ziuxYuS-9jU)
+
 ---
 
 ## Overview
